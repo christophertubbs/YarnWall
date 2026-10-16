@@ -507,8 +507,7 @@ function renderChart(prepared_data, all_paths, anchor){
     // Add a click handler that changes the URL anchor to the ID of the clicked node.
     node.on("click", (event, d) => {
       location.hash = d.id;
-      // Also refresh the page to reflect the new anchor.
-      location.reload();
+      getAnchor(d.id);
     });
 
         
@@ -599,6 +598,17 @@ if (input) {
 }
 hideSplash();
 
+function getAnchor(anchor) {
+  if(!anchor){
+    anchor = window.location.hash.slice(1);
+  }
+  let prepared_data = prepareData(source_data, anchor);
+  renderChart(prepared_data, source_data.paths, anchor);
+  writeDocSidebar(prepared_data, source_data.paths, anchor);
+}
+  
+getAnchor();
+
 // Redraw when the anchor element changes size
 // const resizeObserver = new ResizeObserver(() => {
 //   renderChart();
@@ -606,9 +616,6 @@ hideSplash();
 // resizeObserver.observe(window.document.body);
 // console.log("setting hashchange listener");
 window.addEventListener("hashchange", function(){
-  let anchor = window.location.hash.slice(1);
-  let prepared_data = prepareData(source_data, anchor);
-  renderChart(prepared_data, source_data.paths, anchor);
-  writeDocSidebar(prepared_data, source_data.paths, anchor);
+  getAnchor();
 });
 
