@@ -1,0 +1,61 @@
+#paths_doc {
+  position: absolute; 
+  top: 0; right: 0; 
+  width: 25%; 
+  min-width: 400px; 
+  opacity: 0.9; 
+  background-color: white; 
+  font-family: sans-serif;
+  overflow: scroll;
+  height: calc(100% - 20px);
+}
+#paths_doc .comment {
+  font-style: italic;
+  font-size: 12px;
+}
+
+#paths_doc_content .path {
+  text-align: center;
+  zoom: 65%;
+}
+#paths_doc_content .path div {
+  display: flex;
+  flex-direction: column;
+}
+#paths_doc_content .path .link {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row;
+  justify-content: center;
+  align-items: flex-start;
+}
+#paths_doc_content .path .link .subpath::before {
+  content: '↓';
+  width: 100%;
+}
+#paths_doc_content .path .link:first-child .subpath::before {
+  content: none;
+  display: block;
+}
+#paths_doc_content .path a {
+  color: #333333;
+  text-decoration: none;
+}
+#paths_doc_home {
+  display: block;
+  float: right;
+  margin-right: 10px;
+  border: 1px solid #999999;
+  text-decoration: none;
+  border-radius: 5px;
+}
+
+#force-graph {
+  cursor: grab;
+}
+#force-graph:active {
+  cursor: grabbing;
+}
+#force-graph text {
+  cursor: pointer;
+}

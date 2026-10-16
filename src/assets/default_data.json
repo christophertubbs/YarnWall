@@ -1,0 +1,28 @@
+{
+    "nodes_array": [
+        ["website", "app", "Public Web Site"],
+        ["webserver", "host", "Web Server"],
+        ["srv_isp", "infrastructure", "Server ISP"],
+        ["google_search", "app", "Google Search"],
+        ["usr_isp", "infrastructure", "User ISP"],
+        ["user", "host", "User Device"]
+    ],
+    "links_meta": [
+        {"link": ["website", "webserver"], "type": "runson"}
+    ],
+    "links_implied": [],
+    "paths": {
+        "google_search_discovery": {
+            "name": "Google Search Discovery",
+            "path": ["website", "webserver", "srv_isp", "google_search", "usr_isp", "user"]
+        },
+        "user_viewing": {
+            "name": "User Viewing",
+            "path": ["website", "webserver", "srv_isp", "usr_isp", "user"]
+        },
+        "user_submission": {
+            "name": "User Submission",
+            "path": ["user", "usr_isp", "srv_isp", "webserver", "website"]
+        }
+    }
+}

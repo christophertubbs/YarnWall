@@ -75,3 +75,13 @@ bower_components/
 .grunt/
 src/vendor/
 dist/
+# NPM/Vite #
+############
+dist-ssr
+*.local
+logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
