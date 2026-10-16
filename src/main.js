@@ -536,6 +536,7 @@ function renderChart(prepared_data, all_paths, anchor){
 
 }
 
+// const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function loadData(searchParams){
   if(!searchParams.has('input')){
@@ -545,6 +546,9 @@ async function loadData(searchParams){
 
   let url = searchParams.get('input');
   let headers = searchParams.has('_headers') ? JSON.parse(searchParams.get('_headers')) : {};
+
+  let seenFiles = new Set();
+  let loadedFiles = new Set();
 
   let source_data = {
     nodes_array: [],
@@ -556,6 +560,12 @@ async function loadData(searchParams){
   async function innerLoad(url, source_data) {
     // console.log(`headers: ${JSON.stringify(headers)}`)
     const opts = { headers: headers || {} };
+
+    const base = new URL(url, window.location.href);
+    seenFiles.add(base.href);
+    updateSplashLoadingText(seenFiles.size, loadedFiles.size);
+
+    // await sleep(2000);
     const response = await fetch(url, opts);
     const data = await response.json();
 
@@ -576,12 +586,21 @@ async function loadData(searchParams){
       source_data.paths = Object.assign(source_data.paths, data.paths);
     }
 
+    loadedFiles.add(base.href);
+
+    updateSplashLoadingText(seenFiles.size, loadedFiles.size);
+
     if ('files' in data) {
-      for (const file of data.files) {
-        const base = new URL(url, window.location.href);
-        await innerLoad(new URL(file, base).href, source_data);
-      }
+      let filesToLoad = data.files.filter(file => !seenFiles.has(file));
+      // filesToLoad.forEach(file => seenFiles.add(file));
+
+      // Load all files in parallel...
+      await Promise.all(filesToLoad.map(async file => {
+        let resolvedUrl = new URL(file, base).href;
+        return await innerLoad(resolvedUrl, source_data); 
+      }));
     }
+
   }
   
   await innerLoad(url, source_data);
@@ -599,6 +618,10 @@ function showSplash() {
 }
 function hideSplash() {
   splash.style.display = "none";
+}
+function updateSplashLoadingText(numLoading, numLoaded) {
+  document.getElementById("splash-text").textContent = `Loaded ${numLoaded} of ${numLoading} files...`;
+  console.log(`Loaded ${numLoaded} of ${numLoading} files...`);
 }
 showSplash();
 
