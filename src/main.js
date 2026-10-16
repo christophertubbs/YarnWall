@@ -579,17 +579,24 @@ async function loadData(url){
   return source_data;
 }
 
-// Read the "input" query string parameter and use it to determine the data file to load
-let input = new URLSearchParams(window.location.search).get("input");
+// Splash screen handling
+const splash = document.getElementById("splash");
+const splashLogo = document.getElementById("splash-logo");
+import splashUrl from './assets/YarnWall.jpg';
+
+function showSplash() {
+  splash.style.display = "block";
+  splashLogo.src = splashUrl;
+}
+function hideSplash() {
+  splash.style.display = "none";
+}
+showSplash();
 let source_data = default_data;
 if (input) {
   source_data = await loadData(input);
 }
-
-let anchor = window.location.hash.slice(1);
-let prepared_data = prepareData(source_data, anchor);
-renderChart(prepared_data, source_data.paths, anchor);
-writeDocSidebar(prepared_data, source_data.paths, anchor);
+hideSplash();
 
 // Redraw when the anchor element changes size
 // const resizeObserver = new ResizeObserver(() => {
