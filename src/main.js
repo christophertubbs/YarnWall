@@ -41,7 +41,7 @@ function prepareData(source_data, anchor){
     }
     links_implied_reverse_dict[source].push(target);
   }
-  console.log(links_implied_reverse_dict);
+  // console.log(links_implied_reverse_dict);
 
   for(let k in paths) {
     paths[k]['paths_resolved'] = [paths[k].path];
@@ -102,7 +102,7 @@ function prepareData(source_data, anchor){
       }
       return accumulator.concat(result);
     }, []);
-    console.log(JSON.stringify(paths[k]['paths_resolved'], null, 2));
+    // console.log(JSON.stringify(paths[k]['paths_resolved'], null, 2));
   }
 
 
@@ -122,7 +122,7 @@ function prepareData(source_data, anchor){
 
     anchors.add(anchor);
     addImpliedNodes(anchor, anchors);
-    console.log(anchors);
+    // console.log(anchors);
 
     // TODO: This is a very restrictive and incomplete way of filtering paths, but general tree traversal further below is too broad
     //       as it picks up completely unrelated paths for a given node. Need better solutions.
@@ -187,7 +187,7 @@ function prepareData(source_data, anchor){
     //FIXME: This is not catching implied links to the root node of the path!
     for (const target of link_nodes_filtered) {
       if (links_implied_dict[target]) {
-        console.log(`Adding implied links for target: ${target}`);
+        // console.log(`Adding implied links for target: ${target}`);
         for (const implied_source of links_implied_dict[target]) {
           const implied_link = [implied_source, target];
           if (!links_arr_filtered.some(existing => existing[0] === implied_link[0] && existing[1] === implied_link[1])) {
@@ -384,14 +384,14 @@ function renderChart(prepared_data, all_paths, anchor){
           })
           .strength(d => {
             if (d.type === "runson") {
-              console.log("Runson link detected for node:", d.id);
+              // console.log("Runson link detected for node:", d.id);
               return 1.0;
             } else if (d.type === "indirect") {
-              console.log("Indirect link detected for node:", d.id);
+              // console.log("Indirect link detected for node:", d.id);
               return 0.01;
             }
             return 0.1;
-            console.log(d);
+            // console.log(d);
           })
         )
         .force("charge", d3.forceManyBody().strength(-800))
@@ -604,7 +604,7 @@ hideSplash();
 //   renderChart();
 // });
 // resizeObserver.observe(window.document.body);
-console.log("setting hashchange listener");
+// console.log("setting hashchange listener");
 window.addEventListener("hashchange", function(){
   let anchor = window.location.hash.slice(1);
   let prepared_data = prepareData(source_data, anchor);
