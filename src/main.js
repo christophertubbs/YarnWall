@@ -537,7 +537,15 @@ function renderChart(prepared_data, all_paths, anchor){
 }
 
 
-async function loadData(url){
+async function loadData(searchParams){
+  if(!searchParams.has('input')){
+    console.log("No input specified in searchParams.");
+    return null;
+  }
+
+  let url = searchParams.get('input');
+  let headers = searchParams.has('_headers') ? JSON.parse(searchParams.get('_headers')) : {};
+
   let source_data = {
     nodes_array: [],
     links_meta: [],
@@ -546,8 +554,9 @@ async function loadData(url){
   };
 
   async function innerLoad(url, source_data) {
-    
-    const response = await fetch(url);
+    // console.log(`headers: ${JSON.stringify(headers)}`)
+    const opts = { headers: headers || {} };
+    const response = await fetch(url, opts);
     const data = await response.json();
 
     if ('nodes_array' in data) {
@@ -592,9 +601,26 @@ function hideSplash() {
   splash.style.display = "none";
 }
 showSplash();
+
+
+let searchParams = new URLSearchParams(window.location.search);
+
+// Check for Google Apps Script parameter injection...
+if(window.gasRequestParams){
+  // console.log(`Getting input from requestParams: ${window.gasRequestParams}`);
+  let gasHeaders = window.gasRequestParams._gasHeaders;
+  delete window.gasRequestParams._gasHeaders;
+  searchParams = new URLSearchParams(window.gasRequestParams);
+  searchParams.set('_headers', JSON.stringify(gasHeaders));
+} else {
+  searchParams.delete('_headers'); // Prevent trying to use this outisde of GAS for some reason
+  // console.log(`Getting input from URL search parameters: ${searchParams.get('input')}`);
+}
+
 let source_data = default_data;
-if (input) {
-  source_data = await loadData(input);
+let loadedData = await loadData(searchParams);
+if (loadedData) {
+  source_data = loadedData;
 }
 hideSplash();
 
