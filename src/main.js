@@ -570,7 +570,8 @@ async function loadData(url){
 
     if ('files' in data) {
       for (const file of data.files) {
-        await innerLoad(file, source_data);
+        const base = new URL(url, window.location.href);
+        await innerLoad(new URL(file, base).href, source_data);
       }
     }
   }

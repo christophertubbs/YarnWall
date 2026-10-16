@@ -43,7 +43,7 @@ Each data file may contain:
   - `runson` - Denotes a tighter coupling and is currently represented by a shorter line rendering for the link
 - `links_implied`: pairs of node IDs where the first item should always appear in the diagram whenever the second item in the pair is present; this is useful for critical dependencies that should always be shown for a node but do not directly appear in many/any paths.
 - `files`: an array of other JSON files to combine; this allows modular recording of structures and alternative top-level aggregations of subgraphs.
-  - NOTE: File paths are currently fetched relative to the application origin, so the data files must be reachable at the paths specified in the JSON--though this may change!
+  - NOTE: Relative file paths are fetched relative to the file in which they appear.
 
 When using multiple files, IDs used in paths must be kept consistent across files for nodes shared between data files, and node IDs must be unique across data files that may be included together.
 
