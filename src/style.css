@@ -76,3 +76,6 @@ body {
 #force-graph text {
   cursor: pointer;
 }
+#force-graph.will-impact text {
+  cursor: no-drop;
+}

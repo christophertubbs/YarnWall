@@ -320,6 +320,49 @@ function writeDocSidebar(prepared_data, all_paths, anchor) {
 
 }
 
+// Recomputes the `impacted` flag on every link in prepared_data from the `impacted` flags on its nodes.
+// A link is impacted if it follows an impacted node (or a node reachable from one via implied links) in a
+// resolved path, or if it is itself an implied link traversed downstream of an impacted node.
+function computeImpactedLinks(prepared_data, links_implied) {
+  const { nodes, links, paths } = prepared_data;
+
+  const implied_by_source = {};
+  for (const [source, target] of links_implied || []) {
+    (implied_by_source[source] ||= []).push(target);
+  }
+
+  // Impacted nodes plus everything downstream of them via implied links.
+  const flagged = new Set(nodes.filter(n => n.impacted).map(n => n.id));
+  const impacted_keys = new Set();
+  const queue = [...flagged];
+  while (queue.length) {
+    const node = queue.shift();
+    for (const target of implied_by_source[node] || []) {
+      impacted_keys.add(`${node}>${target}`);
+      if (!flagged.has(target)) {
+        flagged.add(target);
+        queue.push(target);
+      }
+    }
+  }
+
+  for (const k in paths) {
+    for (const path of paths[k].paths_resolved) {
+      const start = path.findIndex(e => flagged.has(e));
+      if (start === -1) continue;
+      for (let i = start; i < path.length - 1; i++) {
+        if (typeof path[i] === 'string' && typeof path[i + 1] === 'string') {
+          impacted_keys.add(`${path[i]}>${path[i + 1]}`);
+        }
+      }
+    }
+  }
+
+  for (const link of links) {
+    link.impacted = impacted_keys.has(`${link.source}>${link.target}`);
+  }
+}
+
 function renderChart(prepared_data, all_paths, anchor){
   let nodes = prepared_data.nodes;
   let links = prepared_data.links; 
@@ -440,10 +483,11 @@ function renderChart(prepared_data, all_paths, anchor){
         .attr("style", "max-width: 100%; height: auto; font: 12px sans-serif;");
     const container = svg.append("g");
 
+    const marker_defs = link_types.flatMap(t => [{type: t, red: false}, {type: t, red: true}]);
     svg.append("defs").selectAll("marker")
-      .data(link_types)
+      .data(marker_defs)
       .join("marker")
-        .attr("id", d => `arrow-${d}`)
+        .attr("id", d => d.red ? `arrow-${d.type}-red` : `arrow-${d.type}`)
         .attr("viewBox", "0 -5 10 10")
         .attr("refX", 15)
         .attr("refY", -0.5)
@@ -451,7 +495,7 @@ function renderChart(prepared_data, all_paths, anchor){
         .attr("markerHeight", 6)
         .attr("orient", "auto")
       .append("path")
-        .attr("fill", '#999')// , color)
+        .attr("fill", d => d.red ? 'red' : '#999')
         .attr("d", "M0,-5L10,0L0,5");
 
 
@@ -461,9 +505,9 @@ function renderChart(prepared_data, all_paths, anchor){
       .selectAll("path")
       .data(links)
       .join("path")
-        .attr("stroke", d => '#999')//color(d.type))
+        .attr("stroke", d => d.impacted ? 'red' : '#999')
         .attr("stroke-width", d => d.type === "indirect" ? 0.5 : 1.5)
-        .attr("marker-end", d => `url(${new URL(`#arrow-${d.type}`, location)})`);
+        .attr("marker-end", d => `url(${new URL(`#arrow-${d.type}${d.impacted ? '-red' : ''}`, location)})`);
 
 
     const node = container.append("g")
@@ -476,8 +520,8 @@ function renderChart(prepared_data, all_paths, anchor){
         .call(drag(simulation));
 
     node.append("circle")
-      .attr("stroke", "white")
-      .attr("stroke-width", 1.5)
+      .attr("stroke", d => d.impacted ? "red" : "white")
+      .attr("stroke-width", d => d.impacted ? 3 : 1.5)
       .attr("r", 5)
       .attr("fill", d => color(d.type));
 
@@ -504,8 +548,34 @@ function renderChart(prepared_data, all_paths, anchor){
       });
     svg.call(zoom);
 
-    // Add a click handler that changes the URL anchor to the ID of the clicked node.
+    // Restyle in place so toggling impact doesn't restart the force layout.
+    const applyImpacted = () => {
+      const prepared_by_id = new Map(prepared_data.nodes.map(n => [n.id, n]));
+      nodes.forEach(n => { n.impacted = !!prepared_by_id.get(n.id)?.impacted; });
+      links.forEach((l, i) => { l.impacted = !!prepared_data.links[i].impacted; });
+
+      link
+        .attr("stroke", d => d.impacted ? 'red' : '#999')
+        .attr("marker-end", d => `url(${new URL(`#arrow-${d.type}${d.impacted ? '-red' : ''}`, location)})`);
+      node.select("circle")
+        .attr("stroke", d => d.impacted ? "red" : "white")
+        .attr("stroke-width", d => d.impacted ? 3 : 1.5);
+    };
+
+    // Click navigates to the node; Ctrl/Cmd+click toggles its "impacted" state instead.
     node.on("click", (event, d) => {
+      if (event.ctrlKey || event.metaKey) {
+        event.preventDefault();
+        let prepared_node = prepared_data.nodes.find(n => n.id === d.id);
+        if (!prepared_node) {
+          prepared_node = {id: d.id, type: d.type, name: d.name};
+          prepared_data.nodes.push(prepared_node);
+        }
+        prepared_node.impacted = !prepared_node.impacted;
+        computeImpactedLinks(prepared_data, source_data.links_implied);
+        applyImpacted();
+        return;
+      }
       location.hash = d.id;
       getAnchor(d.id);
     });
@@ -533,6 +603,7 @@ function renderChart(prepared_data, all_paths, anchor){
     return svg.node();
   }
   document.body.appendChild(chart());
+  // setWillImpact(modifierHeld);
 
 }
 
@@ -607,6 +678,20 @@ async function loadData(searchParams){
   return source_data;
 }
 
+// Tracks whether Ctrl/Cmd is held, so the graph can signal that a click will toggle "impacted".
+// The graph element is recreated on every render, so the state is reapplied after each one.
+let modifierHeld = false;
+
+function setWillImpact(held) {
+  modifierHeld = held;
+  document.getElementById("force-graph")?.classList.toggle("will-impact", held);
+}
+
+window.addEventListener("keydown", e => setWillImpact(e.ctrlKey || e.metaKey));
+window.addEventListener("keyup", e => setWillImpact(e.ctrlKey || e.metaKey));
+window.addEventListener("blur", () => setWillImpact(false));
+
+
 // Splash screen handling
 const splash = document.getElementById("splash");
 const splashLogo = document.getElementById("splash-logo");
@@ -647,11 +732,20 @@ if (loadedData) {
 }
 hideSplash();
 
+let current_prepared = null;
+
 function getAnchor(anchor) {
   if(!anchor){
     anchor = window.location.hash.slice(1);
   }
+  const impactedIds = new Set((current_prepared?.nodes || []).filter(n => n.impacted).map(n => n.id));
   let prepared_data = prepareData(source_data, anchor);
+  current_prepared = prepared_data;
+  // Carry impacted flags over from the previous render, since prepareData rebuilds the structure.
+  for (const n of prepared_data.nodes) {
+    n.impacted = impactedIds.has(n.id);
+  }
+  computeImpactedLinks(prepared_data, source_data.links_implied);
   renderChart(prepared_data, source_data.paths, anchor);
   writeDocSidebar(prepared_data, source_data.paths, anchor);
 }
