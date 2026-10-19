@@ -262,6 +262,19 @@ function writeDocSidebar(prepared_data, all_paths, anchor) {
   // Write Doc sidebar
 
   let nodes_dict = Object.fromEntries(nodes.map(d => [d.id, d]));
+  const impacted_keys = new Set(prepared_data.links.filter(l => l.impacted).map(l => `${l.source}>${l.target}`));
+  const reach = prepared_data.impacted_reach || new Set();
+
+  // Node IDs at the start or end of a path element (a node ID, or a reference to another path).
+  function edgeNodes(element, atEnd, seen = new Set()) {
+    if (typeof element === 'string') return [element];
+    if (!element?.path_id || seen.has(element.path_id)) return [];
+    const ref = all_paths[element.path_id]?.path;
+    if (!ref?.length) return [];
+    const next = new Set(seen).add(element.path_id);
+    const edge = atEnd ? ref[ref.length - 1] : ref[0];
+    return (Array.isArray(edge) ? edge : [edge]).flatMap(e => edgeNodes(e, atEnd, next));
+  }
 
   const pathsDoc = document.getElementById('paths_doc_content');
   pathsDoc.innerHTML = '';
@@ -280,8 +293,12 @@ function writeDocSidebar(prepared_data, all_paths, anchor) {
     const pathDiv = document.createElement('div');
     pathDiv.className = 'path';
 
-    function printPath(path, parentElement) {
+    // `incoming` is the list of {node, reached} ends preceding this path; `reached` means an impacted node
+    // (or one downstream of it via implied links) appears earlier on the path being drawn.
+    // Returns the {node, reached} ends of this path.
+    function printPath(path, parentElement, incoming = []) {
       let separator = null;
+      let prevEnds = incoming;
       for (let link of path.path) {
         const linkDiv = document.createElement('div');
         linkDiv.className = 'link';
@@ -289,9 +306,15 @@ function writeDocSidebar(prepared_data, all_paths, anchor) {
         if(!Array.isArray(link)){
           link = [link];
         }
+        const currentEnds = [];
         for(const sublink of link){
           let subDiv = document.createElement('div');
           subDiv.className = 'subpath';
+          // The arrow into this element is its ::before; flag it only if the impacted node is already on this path.
+          const starts = edgeNodes(sublink, false);
+          if (prevEnds.some(p => p.reached && starts.some(s => impacted_keys.has(`${p.node}>${s}`)))) {
+            subDiv.classList.add('impacted');
+          }
           linkDiv.appendChild(subDiv);
           if(typeof sublink == 'string'){
             let nodeName = nodes_dict[sublink]?.name || sublink;
@@ -299,11 +322,12 @@ function writeDocSidebar(prepared_data, all_paths, anchor) {
             linka.href = `#${sublink}`;
             linka.innerHTML = `<svg viewBox="0 0 12 12" style="width: 16px; height: 16px;"><circle cx="8" cy="8" r="4" fill="${node_type_colors[nodes_dict[sublink]?.type || 'unknown']}" /></svg> ` + nodeName;
             subDiv.appendChild(linka);
+            currentEnds.push({node: sublink, reached: prevEnds.some(p => p.reached) || reach.has(sublink)});
           } else {
-            printPath(all_paths[sublink.path_id], subDiv); //NOTE: Goes back to the main/all paths data!
+            currentEnds.push(...printPath(all_paths[sublink.path_id], subDiv, prevEnds)); //NOTE: Goes back to the main/all paths data!
           }
         }
-        let nodeName = nodes_dict[link]?.name || link;
+        prevEnds = currentEnds;
         separator = document.createElement('div');
         separator.className = 'linknext';
         separator.innerHTML = '<br>&darr;<br>'; //'<br>&darr;<br>';
@@ -311,6 +335,7 @@ function writeDocSidebar(prepared_data, all_paths, anchor) {
           // parentElement.appendChild(separator);
         }
       }
+      return prevEnds;
     }
     
     printPath(path, pathDiv);
@@ -361,6 +386,7 @@ function computeImpactedLinks(prepared_data, links_implied) {
   for (const link of links) {
     link.impacted = impacted_keys.has(`${link.source}>${link.target}`);
   }
+  prepared_data.impacted_reach = flagged;
 }
 
 function renderChart(prepared_data, all_paths, anchor){
@@ -574,6 +600,7 @@ function renderChart(prepared_data, all_paths, anchor){
         prepared_node.impacted = !prepared_node.impacted;
         computeImpactedLinks(prepared_data, source_data.links_implied);
         applyImpacted();
+        writeDocSidebar(prepared_data, all_paths, anchor);
         return;
       }
       location.hash = d.id;

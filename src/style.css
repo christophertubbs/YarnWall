@@ -54,6 +54,12 @@ body {
   content: none;
   display: block;
 }
+#paths_doc_content .path .link .subpath.impacted::before {
+  color: red;
+}
+#paths_doc_content .path .link .subpath.impacted a {
+  color: red;
+}
 #paths_doc_content .path a {
   color: #333333;
   text-decoration: none;
