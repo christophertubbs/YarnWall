@@ -41,11 +41,21 @@ body {
 }
 #paths_doc_content .path .link {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   flex-direction: row;
   justify-content: center;
+  align-items: center;
+}
+#paths_doc_content .path .link:not(:has(.link)) {
+  flex-wrap: wrap; /* Simpler tree nodes can wrap without confusing the structure layout */
+}
+#paths_doc_content .path .link:first-child {
+  align-items: flex-end;
+}
+#paths_doc_content .path .link:last-child {
   align-items: flex-start;
 }
+
 #paths_doc_content .path .link .subpath::before {
   content: '↓';
   width: 100%;
