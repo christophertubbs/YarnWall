@@ -299,6 +299,7 @@ function writeDocSidebar(prepared_data, all_paths, anchor) {
     function printPath(path, parentElement, incoming = []) {
       let separator = null;
       let prevEnds = incoming;
+      let linkaLast = null;
       for (let link of path.path) {
         const linkDiv = document.createElement('div');
         linkDiv.className = 'link';
@@ -314,6 +315,7 @@ function writeDocSidebar(prepared_data, all_paths, anchor) {
           const starts = edgeNodes(sublink, false);
           if (prevEnds.some(p => p.reached && starts.some(s => impacted_keys.has(`${p.node}>${s}`)))) {
             subDiv.classList.add('impacted');
+            if(linkaLast) linkaLast.classList.add('impacted');
           }
           linkDiv.appendChild(subDiv);
           if(typeof sublink == 'string'){
@@ -322,6 +324,7 @@ function writeDocSidebar(prepared_data, all_paths, anchor) {
             linka.href = `#${sublink}`;
             linka.innerHTML = `<svg viewBox="0 0 12 12" style="width: 16px; height: 16px;"><circle cx="8" cy="8" r="4" fill="${node_type_colors[nodes_dict[sublink]?.type || 'unknown']}" /></svg> ` + nodeName;
             subDiv.appendChild(linka);
+            linkaLast = linka;
             currentEnds.push({node: sublink, reached: prevEnds.some(p => p.reached) || reach.has(sublink)});
           } else {
             currentEnds.push(...printPath(all_paths[sublink.path_id], subDiv, prevEnds)); //NOTE: Goes back to the main/all paths data!
