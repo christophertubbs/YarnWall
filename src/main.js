@@ -297,7 +297,6 @@ function writeDocSidebar(prepared_data, all_paths, anchor) {
     // (or one downstream of it via implied links) appears earlier on the path being drawn.
     // Returns the {node, reached} ends of this path.
     function printPath(path, parentElement, incoming = []) {
-      let separator = null;
       let prevEnds = incoming;
       let linkaLast = null;
       for (let link of path.path) {
@@ -331,12 +330,6 @@ function writeDocSidebar(prepared_data, all_paths, anchor) {
           }
         }
         prevEnds = currentEnds;
-        separator = document.createElement('div');
-        separator.className = 'linknext';
-        separator.innerHTML = '<br>&darr;<br>'; //'<br>&darr;<br>';
-        if (separator) {
-          // parentElement.appendChild(separator);
-        }
       }
       return prevEnds;
     }
