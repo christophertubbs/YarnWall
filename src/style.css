@@ -50,14 +50,14 @@ body {
   content: '↓';
   width: 100%;
 }
-#paths_doc_content .path .link:first-child .subpath::before {
+#paths_doc_content .path .link:first-child > .subpath::before {
   content: none;
   display: block;
 }
 #paths_doc_content .path .link .subpath.impacted::before {
   color: red;
 }
-#paths_doc_content .path .link .subpath.impacted a {
+#paths_doc_content .path .link .subpath.impacted a, #paths_doc_content .path .link .subpath a.impacted {
   color: red;
 }
 #paths_doc_content .path a {
