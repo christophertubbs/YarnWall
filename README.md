@@ -38,6 +38,8 @@ Each data file may contain:
   - A single node ID (a string)
   - An array of node IDs, which represents a set of similar nodes at that point in the path (for example, multiple similar data artifacts generated at that point). Optional `name` and `comment` fields describe the path.
   - An object including a `path_id` (or an array of such objects), which allows referencing another path, for reusing or chaining paths. _Chained paths are only allowed at the first or last position of the path, and not at both ends._
+
+  (See notes below on desiging and choosing paths)
 - `nodes_array`: arrays of `[id, type, name]`. The display name is optional; the ID is used if it is omitted. Currently supported types are 'app', 'service', 'infrastructure', 'data', 'library', and 'host'
 - `links_meta`: objects with a `link` pair of node IDs and a `type`. Currently supported types are:
   - `runson` - Denotes a tighter coupling and is currently represented by a shorter line rendering for the link
@@ -49,6 +51,23 @@ When using multiple files, IDs used in paths must be kept consistent across file
 
 Paths can contain node IDs that are omitted from `nodes_array`; they will be displayed with an unknown type (this is useful during drafting a graph structure, as the nodes and their metadata can be filled in later).
 
+### On Designing Paths
+
+Chosing what to include in `path` lists is a combination of art and science--it will depend on what you want to communicate. The combination of all paths defines the whole system "graph", but the graph as a whole has both too much and too little information to be useful--you communicate more by being deliberate about what paths are specifically defined.
+
+Defined path lists determine:
+
+1. Paths that are described in the sidebar for the graph
+2. When a node is marked as "impacted", only links in paths that include that node are highlighted as also impacted
+
+This means you should choose to define your paths with these things in mind. What will the user/reader want to see about data flow or dependencies for a given node? What flow or dependencies to and from the node are critical or primary, and what connections are less important or secondary? What paths get defined will depend very much on the system you are documenting.
+
+General tips:
+- A path should usually describe the flow of one piece or type of data, or of a very closely related set of data artifacts, in a single direction.
+  - If dependency-centric instead of data-centric, the path should describe a specific type of end-to-end required/critical dependency or failure path
+- A single defined path should probably not have a cycle (though the total combined graph probably will).
+- A path should not cover a large part of the whole resulting graph unless a  failure on a node in the path impacts a large part of the system.
+
 ## Usage
 
 The displayed diagram shows nodes and directional links derived from the configured paths and implied links. Node color indicates its type. The panel on the right lists the paths included in the data and links each path's node names to the corresponding diagram node.
@@ -56,6 +75,7 @@ The displayed diagram shows nodes and directional links derived from the configu
 - Drag nodes to adjust the layout.
 - Use the scroll wheel to zoom the diagram.
 - Click a node to focus the view on paths containing that node. The selected node is highlighted and only paths in which that node appears are shown.
+- Ctrl+Click a node to mark it as "impacted", and downstream path segments including the node will be highlighted in red
 - Use the home link in the path panel to clear the selected node.
 
 To document a flow, add its nodes and a path to a JSON data file, then load that file using the `input` parameter. Use the example data in  `default_data.json` as a reference.
