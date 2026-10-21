@@ -323,6 +323,16 @@ function writeDocSidebar(prepared_data, all_paths, anchor) {
             linka.href = `#${sublink}`;
             linka.innerHTML = `<svg viewBox="0 0 12 12" style="width: 16px; height: 16px;"><circle cx="8" cy="8" r="4" fill="${node_type_colors[nodes_dict[sublink]?.type || 'unknown']}" /></svg> ` + nodeName;
             subDiv.appendChild(linka);
+            linka.addEventListener("click", (event) => {
+              if (event.ctrlKey || event.metaKey) {
+                event.preventDefault();
+                prepared_data.nodes.filter(node => node.id === sublink).forEach(node => node.impacted = !node.impacted);
+                computeImpactedLinks(prepared_data, source_data.links_implied);
+                applyImpacted();
+                writeDocSidebar(prepared_data, all_paths, anchor);
+              }
+            });
+
             linkaLast = linka;
             currentEnds.push({node: sublink, reached: prevEnds.some(p => p.reached) || reach.has(sublink)});
           } else {
@@ -384,6 +394,8 @@ function computeImpactedLinks(prepared_data, links_implied) {
   }
   prepared_data.impacted_reach = flagged;
 }
+
+let applyImpacted = null;
 
 function renderChart(prepared_data, all_paths, anchor){
   let nodes = prepared_data.nodes;
@@ -571,7 +583,7 @@ function renderChart(prepared_data, all_paths, anchor){
     svg.call(zoom);
 
     // Restyle in place so toggling impact doesn't restart the force layout.
-    const applyImpacted = () => {
+    applyImpacted = () => {
       const prepared_by_id = new Map(prepared_data.nodes.map(n => [n.id, n]));
       nodes.forEach(n => { n.impacted = !!prepared_by_id.get(n.id)?.impacted; });
       links.forEach((l, i) => { l.impacted = !!prepared_data.links[i].impacted; });
