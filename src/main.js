@@ -421,6 +421,22 @@ function computeImpactedLinks(prepared_data, links_implied) {
 
 let applyImpacted = null;
 let applyHovered = null;
+const strengthFunc = d => {
+  let mult = 1.0;
+  if (d.impacted) {
+    console.log("Impacted link detected for node:", d.id);
+    return 1.0;
+  }
+  if (d.type === "runson") {
+    // console.log("Runson link detected for node:", d.id);
+    return 1.0;
+  } else if (d.type === "indirect") {
+    // console.log("Indirect link detected for node:", d.id);
+    return 0.01 * mult;
+  }
+  return 0.1 * mult;
+  // console.log(d);
+}
 
 function renderChart(prepared_data, all_paths, anchor){
   let nodes = prepared_data.nodes;
@@ -484,17 +500,7 @@ function renderChart(prepared_data, all_paths, anchor){
             }
             return 50;
           })
-          .strength(d => {
-            if (d.type === "runson") {
-              // console.log("Runson link detected for node:", d.id);
-              return 1.0;
-            } else if (d.type === "indirect") {
-              // console.log("Indirect link detected for node:", d.id);
-              return 0.01;
-            }
-            return 0.1;
-            // console.log(d);
-          })
+          .strength(strengthFunc)
         )
         .force("charge", d3.forceManyBody().strength(-800))
         .force("center", d3.forceCenter(width * 0.375, height / 2))
@@ -619,6 +625,8 @@ function renderChart(prepared_data, all_paths, anchor){
       node.select("circle")
         .attr("stroke", d => d.impacted ? "red" : "white")
         .attr("stroke-width", d => d.impacted ? 3 : 1.5);
+      simulation.force("link").strength(strengthFunc); // Force re-evaluate
+      simulation.alpha(0.1).restart();
     };
     applyHovered = () => {
       const prepared_by_id = new Map(prepared_data.nodes.map(n => [n.id, n]));
