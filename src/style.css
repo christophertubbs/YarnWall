@@ -74,13 +74,16 @@ body {
   color: #333333;
   text-decoration: none;
 }
-#paths_doc_home {
+#paths_doc button {
   display: block;
   float: right;
   margin-right: 10px;
   border: 1px solid #999999;
   text-decoration: none;
   border-radius: 5px;
+  width: 30px;
+  height: 30px;
+  margin: 4px;
 }
 
 #force-graph {

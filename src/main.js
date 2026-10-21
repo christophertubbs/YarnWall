@@ -756,6 +756,10 @@ async function loadData(searchParams){
   return source_data;
 }
 
+function sourceDataToClipboard() {
+  navigator.clipboard.writeText(source_data_json);
+}
+
 // Tracks whether Ctrl/Cmd is held, so the graph can signal that a click will toggle "impacted".
 // The graph element is recreated on every render, so the state is reapplied after each one.
 let modifierHeld = false;
@@ -803,10 +807,11 @@ if(window.gasRequestParams){
   // console.log(`Getting input from URL search parameters: ${searchParams.get('input')}`);
 }
 
-let source_data = default_data;
+let source_data = default_data, source_data_json = JSON.stringify(default_data);
 let loadedData = await loadData(searchParams);
 if (loadedData) {
   source_data = loadedData;
+  source_data_json = JSON.stringify(source_data);
 }
 hideSplash();
 
@@ -838,5 +843,12 @@ getAnchor();
 // console.log("setting hashchange listener");
 window.addEventListener("hashchange", function(){
   getAnchor();
+});
+
+document.getElementById("btn-home").addEventListener("click", function(){
+  window.location.hash = "";
+});
+document.getElementById("btn-json-copy").addEventListener("click", function(){
+  navigator.clipboard.writeText(source_data_json);
 });
 
