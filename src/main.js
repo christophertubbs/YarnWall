@@ -345,6 +345,30 @@ function writeDocSidebar(prepared_data, all_paths, anchor) {
     }
     
     printPath(path, pathDiv);
+
+    // let links = prepared_data.links.filter(link => pathLinks.some(pl => pl[0] === link.source && pl[1] === link.target));
+    const hoveredLinks = path.paths_resolved.reduce((acc, resolvedPath) => {
+      for (let i = 0; i < resolvedPath.length - 1; i++) {
+        acc.push([resolvedPath[i], resolvedPath[i + 1]]);
+      }
+      return acc;
+    }, []);
+    if(hoveredLinks.length === 0) return [];
+    let links = prepared_data.links.filter(link => hoveredLinks.some(([source, target]) => source === link.source && target === link.target));
+    
+    pathDiv.onmouseenter = () => ((links) =>{
+      for (const link of links) {
+        link.hovered = true;
+      }
+      applyHovered();
+    })(links);
+    pathDiv.onmouseleave = () => ((links) => {
+      for (const link of links) {
+        link.hovered = false;
+      }
+      applyHovered();
+    })(links);
+
     div.appendChild(pathDiv);
     pathsDoc.appendChild(div);
   }
@@ -396,6 +420,7 @@ function computeImpactedLinks(prepared_data, links_implied) {
 }
 
 let applyImpacted = null;
+let applyHovered = null;
 
 function renderChart(prepared_data, all_paths, anchor){
   let nodes = prepared_data.nodes;
@@ -540,7 +565,7 @@ function renderChart(prepared_data, all_paths, anchor){
       .data(links)
       .join("path")
         .attr("stroke", d => d.impacted ? 'red' : '#999')
-        .attr("stroke-width", d => d.type === "indirect" ? 0.5 : 1.5)
+        .attr("stroke-width", d => d.type === "indirect" ? 0.5 : d.hovered ? 3 : 1.5)
         .attr("marker-end", d => `url(${new URL(`#arrow-${d.type}${d.impacted ? '-red' : ''}`, location)})`);
 
 
@@ -594,6 +619,16 @@ function renderChart(prepared_data, all_paths, anchor){
       node.select("circle")
         .attr("stroke", d => d.impacted ? "red" : "white")
         .attr("stroke-width", d => d.impacted ? 3 : 1.5);
+    };
+    applyHovered = () => {
+      const prepared_by_id = new Map(prepared_data.nodes.map(n => [n.id, n]));
+      nodes.forEach(n => { n.hovered = !!prepared_by_id.get(n.id)?.hovered; });
+      links.forEach((l, i) => { l.hovered = !!prepared_data.links[i].hovered; });
+
+      link
+        .attr("stroke-width", d => d.hovered ? 3 : 1.5)
+      node.select("circle")
+        .attr("r", d => d.hovered ? 6 : 4);
     };
 
     // Click navigates to the node; Ctrl/Cmd+click toggles its "impacted" state instead.
