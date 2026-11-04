@@ -514,10 +514,9 @@ function renderChart(prepared_data, all_paths, anchor){
           })
           .strength(strengthFunc)
         )
-        .force("charge", d3.forceManyBody().strength(-800))
-        .force("center", d3.forceCenter(width * 0.375, height / 2))
-        .force("x", d3.forceX())
-        .force("y", d3.forceY());
+        .force("charge", d3.forceManyBody().strength(-400))
+        .force("x", d3.forceX(width * 0.375).strength(0.05)) // Soft pull to your custom X center
+        .force("y", d3.forceY(height / 2).strength(0.05))   // Soft pull to your Y center
 
     const drag = simulation => {
       
@@ -549,7 +548,11 @@ function renderChart(prepared_data, all_paths, anchor){
       node.attr("transform", d => `translate(${d.x},${d.y})`);
     });
 
-
+    // Init node positions spread out over the SVG area
+    nodes.forEach((node, i) => {
+        node.x = Math.random() * (width - (width * 0.375));
+        node.y = Math.random() * height;
+    });
 
     // Create the SVG container.
     const svg = d3.create("svg")
