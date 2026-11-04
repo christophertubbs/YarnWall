@@ -4,15 +4,48 @@ import default_data from './assets/default_data.json';
 import * as d3 from 'd3';
 import { legendColor } from 'd3-svg-legend';
 
-const node_type_colors = {
-  "host": "#1f77b4",
-  "data": "#ff7f0e",
-  "app": "#2ca02c",
-  "infrastructure": "#d62728",
-  "service": "#9467bd",
-  "library": "#8c564b",
-  "unknown": "#7f7f7f"
+const applicationStyleDefaults = {
+  node: {
+    "*": {fill: "#7f7f7f", stroke: "white", "stroke-width": 1.5, r: 5},
+    host: {fill: "#1f77b4"},
+    data: {fill: "#ff7f0e"},
+    app: {fill: "#2ca02c"},
+    infrastructure: {fill: "#d62728"},
+    service: {fill: "#9467bd"},
+    library: {fill: "#8c564b"},
+    unknown: {fill: "#7f7f7f"}
+  },
+  link: {
+    "*": {stroke: "#999", "stroke-width": 1.5},
+    indirect: {"stroke-width": 0.5}
+  }
 };
+
+const styleAttributes = {
+  node: ["fill", "stroke", "stroke-width", "r"],
+  link: ["stroke", "stroke-width", "stroke-dasharray"]
+};
+
+function getEffectiveStyle(styleData, kind, type) {
+  const defaults = applicationStyleDefaults[kind];
+  const userStyles = styleData?.[kind] || {};
+  const styles = {
+    ...defaults["*"],
+    ...defaults[type],
+    ...userStyles["*"],
+    ...userStyles[type]
+  };
+  return Object.fromEntries(styleAttributes[kind]
+    .filter(attribute => styles[attribute] !== undefined)
+    .map(attribute => [attribute, styles[attribute]]));
+}
+
+function applyAttributes(selection, attributes) {
+  for (const [attribute, value] of Object.entries(attributes)) {
+    selection.attr(attribute, value);
+  }
+}
+
 
 // const source_data = ;
 
@@ -226,7 +259,8 @@ function prepareData(source_data, anchor){
   let data = {
     nodes: nodes,
     links: links,
-    paths: paths
+    paths: paths,
+    style: source_data.style || {}
   };
 
 
@@ -270,7 +304,6 @@ function prepareData(source_data, anchor){
 function writeDocSidebar(prepared_data, all_paths, anchor) {
   let paths = prepared_data.paths;
   let nodes = prepared_data.nodes;
-  // let node_type_colors = prepared_data.node_type_colors;
   // Write Doc sidebar
 
   let nodes_dict = Object.fromEntries(nodes.map(d => [d.id, d]));
@@ -333,7 +366,24 @@ function writeDocSidebar(prepared_data, all_paths, anchor) {
             let nodeName = nodes_dict[sublink]?.name || sublink;
             let linka = document.createElement('a');
             linka.href = `#${sublink}`;
-            linka.innerHTML = `<svg viewBox="0 0 12 12" style="width: 16px; height: 16px;"><circle cx="8" cy="8" r="4" fill="${node_type_colors[nodes_dict[sublink]?.type || 'unknown']}" /></svg> ` + nodeName;
+            const node = nodes_dict[sublink] || {type: 'unknown'};
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('viewBox', '0 0 16 16');
+            svg.setAttribute('style', 'width: 16px; height: 16px;');
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            const iconStyle = getEffectiveStyle(prepared_data.style, 'node', node.type);
+            const userNodeStyles = prepared_data.style?.node || {};
+            if (userNodeStyles["*"]?.r === undefined && userNodeStyles[node.type]?.r === undefined) {
+              iconStyle.r = 4;
+            }
+            applyAttributes(d3.select(circle), {
+              cx: 8,
+              cy: 8,
+              ...iconStyle
+            });
+            svg.appendChild(circle);
+            linka.appendChild(svg);
+            linka.appendChild(document.createTextNode(` ${nodeName}`));
             subDiv.appendChild(linka);
             linka.addEventListener("click", (event) => {
               if (event.ctrlKey || event.metaKey) {
@@ -472,17 +522,35 @@ function renderChart(prepared_data, all_paths, anchor){
     const width = window.innerWidth; // Make fill the available horizontal space
     const height = window.innerHeight;
 
-    // Specify the color scale.
-    // const color = d3.scaleOrdinal(d3.schemeCategory10);
-    const color = d3.scaleOrdinal()
-      .domain(Object.keys(node_type_colors))
-      .range(Object.values(node_type_colors));
+    const userStyles = prepared_data.style || {};
+    const getStyle = (kind, d) => getEffectiveStyle(userStyles, kind, d.type);
+    const getLinkStyle = d => {
+      const style = getStyle("link", d);
+      if (d.impacted) style.stroke = "red";
+      if (d.hovered) {
+        // const userStrokeWidth = getEffectiveStyle(userStyles, "link", d.type)["stroke-width"];
+        // const strokeWidth = Number(userStrokeWidth);
+        // style["stroke-width"] = (Number.isFinite(strokeWidth) ? strokeWidth : 0.5) * 2;
+        style["stroke-width"] = 3;
+      }
+      return style;
+    };
+    const getNodeStyle = d => {
+      const style = getStyle("node", d);
+      if (d.impacted) {
+        style.stroke = "red";
+        style["stroke-width"] = 3;
+      }
+      if (d.hovered) {
+        style.r = 6;
+      }
+      return style;
+    };
 
     // The force simulation mutates links and nodes, so create a copy
     // so that re-evaluating this cell produces the same result.
     let links = prepared_data.links.map(d => ({...d}));
     let nodes = prepared_data.nodes.map(d => ({...d}));
-    const node_types = Array.from(new Set(nodes.map(d => d.type)));
     const link_types = Array.from(new Set(links.map(d => d.type)));
 
     // Remove any nodes not in links...
@@ -501,6 +569,14 @@ function renderChart(prepared_data, all_paths, anchor){
         existingNodeIds.add(link.target);
       }
     }
+    const node_types = Array.from(new Set(nodes.map(d => d.type)));
+    const nodeStyles = new Map(node_types.map(type => [
+      type,
+      getEffectiveStyle(userStyles, "node", type)
+    ]));
+    const color = d3.scaleOrdinal()
+      .domain(node_types)
+      .range(node_types.map(type => nodeStyles.get(type).fill));
 
     // Create a simulation with several forces.
     const simulation = d3.forceSimulation(nodes)
@@ -569,24 +645,25 @@ function renderChart(prepared_data, all_paths, anchor){
       .join("marker")
         .attr("id", d => d.red ? `arrow-${d.type}-red` : `arrow-${d.type}`)
         .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 15)
+        .attr("refX", 10)
         .attr("refY", -0.5)
         .attr("markerWidth", 6)
         .attr("markerHeight", 6)
+        .attr("markerUnits", "strokeWidth")
         .attr("orient", "auto")
       .append("path")
-        .attr("fill", d => d.red ? 'red' : '#999')
+        .attr("fill", d => d.red ? "red" : getStyle("link", d).stroke)
         .attr("d", "M0,-5L10,0L0,5");
 
 
     const link = container.append("g")
         .attr("fill", "none")
-        .attr("stroke-width", 1.5)
       .selectAll("path")
-      .data(links)
-      .join("path")
-        .attr("stroke", d => d.impacted ? 'red' : '#999')
-        .attr("stroke-width", d => d.type === "indirect" ? 0.5 : d.hovered ? 3 : 1.5)
+        .data(links)
+        .join("path")
+        .each(function(d) {
+            applyAttributes(d3.select(this), getLinkStyle(d));
+          })
         .attr("marker-end", d => `url(${new URL(`#arrow-${d.type}${d.impacted ? '-red' : ''}`, location)})`);
 
 
@@ -600,10 +677,9 @@ function renderChart(prepared_data, all_paths, anchor){
         .call(drag(simulation));
 
     node.append("circle")
-      .attr("stroke", d => d.impacted ? "red" : "white")
-      .attr("stroke-width", d => d.impacted ? 3 : 1.5)
-      .attr("r", 5)
-      .attr("fill", d => color(d.type));
+      .each(function(d) {
+        applyAttributes(d3.select(this), getNodeStyle(d));
+      });
 
     node.append("title")
         .text(d => d.id);
@@ -635,11 +711,13 @@ function renderChart(prepared_data, all_paths, anchor){
       links.forEach((l, i) => { l.impacted = !!prepared_data.links[i].impacted; });
 
       link
-        .attr("stroke", d => d.impacted ? 'red' : '#999')
+        .each(function(d) {
+          applyAttributes(d3.select(this), getLinkStyle(d));
+        })
         .attr("marker-end", d => `url(${new URL(`#arrow-${d.type}${d.impacted ? '-red' : ''}`, location)})`);
-      node.select("circle")
-        .attr("stroke", d => d.impacted ? "red" : "white")
-        .attr("stroke-width", d => d.impacted ? 3 : 1.5);
+      node.select("circle").each(function(d) {
+        applyAttributes(d3.select(this), getNodeStyle(d));
+      });
       simulation.force("link").strength(strengthFunc); // Force re-evaluate
       simulation.alpha(0.1).restart();
     };
@@ -648,10 +726,12 @@ function renderChart(prepared_data, all_paths, anchor){
       nodes.forEach(n => { n.hovered = !!prepared_by_id.get(n.id)?.hovered; });
       links.forEach((l, i) => { l.hovered = !!prepared_data.links[i].hovered; });
 
-      link
-        .attr("stroke-width", d => d.hovered ? 3 : 1.5)
-      node.select("circle")
-        .attr("r", d => d.hovered ? 6 : 4);
+      link.each(function(d) {
+        applyAttributes(d3.select(this), getLinkStyle(d));
+      });
+      node.select("circle").each(function(d) {
+        applyAttributes(d3.select(this), getNodeStyle(d));
+      });
     };
 
     // Click navigates to the node; Ctrl/Cmd+click toggles its "impacted" state instead.
@@ -719,6 +799,10 @@ async function loadData(searchParams){
     links_meta: [],
     links_implied: [],
     paths: {},
+    style: {
+      node: {},
+      link: {}
+    },
   };
 
   async function innerLoad(url, source_data) {
@@ -748,6 +832,14 @@ async function loadData(searchParams){
     if ('paths' in data) {
       // paths is an object/dictionary, not an array
       source_data.paths = Object.assign(source_data.paths, data.paths);
+    }
+
+    if (data.style && typeof data.style === 'object') {
+      for (const kind of ['node', 'link']) {
+        if (data.style[kind] && typeof data.style[kind] === 'object') {
+          source_data.style[kind] = Object.assign(source_data.style[kind], data.style[kind]);
+        }
+      }
     }
 
     loadedFiles.add(base.href);
@@ -866,4 +958,3 @@ document.getElementById("btn-home").addEventListener("click", function(){
 document.getElementById("btn-json-copy").addEventListener("click", function(){
   navigator.clipboard.writeText(source_data_json);
 });
-

@@ -1,14 +1,59 @@
 {
+    "style": {
+        "node": {
+            "*": {
+                "fill": "#000000"
+            },
+            "app": {
+                "fill": "#2ca02c",
+                "r": 7
+            },
+            "host": {
+                "fill": "#1f77b4"
+            },
+            "infrastructure": {
+                "fill": "#d62728",
+                "r": 4
+            },
+            "service": {
+                "fill": "#9467bd"
+            },
+            "library": {
+                "fill": "#8c564b"
+            },
+            "unknown": {
+                "fill": "#7f7f7f"
+            }
+        },
+        "link": {
+            "*": {
+                "stroke": "#999999",
+                "stroke-width": "1.5"
+            },
+            "runson": {
+                "stroke": "#666666",
+                "stroke-width": "2.0",
+                "stroke-dasharray": "5,5"
+            },
+            "indirect": {
+                "stroke": "#cccc99",
+                "stroke-width": "1.5",
+                "stroke-dasharray": "5,5"
+            }
+        }
+    },
     "nodes_array": [
         ["website", "app", "Public Web Site"],
         ["webserver", "host", "Web Server"],
         ["srv_isp", "infrastructure", "Server ISP"],
         ["google_search", "app", "Google Search"],
         ["usr_isp", "infrastructure", "User ISP"],
-        ["user", "host", "User Device"]
+        ["user", "host", "User Device"],
+        ["db_server", "host", "Database Server"]
     ],
     "links_meta": [
-        {"link": ["website", "webserver"], "type": "runson"}
+        {"link": ["website", "webserver"], "type": "runson"},
+        {"link": ["website", "db_server"], "type": "indirect"}
     ],
     "links_implied": [],
     "paths": {
@@ -22,7 +67,7 @@
         },
         "user_submission": {
             "name": "User Submission",
-            "path": ["user", "usr_isp", "srv_isp", "webserver", "website"]
+            "path": ["user", "usr_isp", "srv_isp", "webserver", "website", "db_server"]
         }
     }
 }
