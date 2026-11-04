@@ -76,33 +76,45 @@ function prepareData(source_data, anchor){
   // For only the first or last element in a resolved path, the element may be an object with an "path_id" property--this 
   // indicates that the element is a reference to another path. All resolved paths for the path identified by that ID
   // should be appended to the beginning or end of that resolved path--this may result in multiple expanded paths.
-  for (let k in paths) {
-    paths[k]['paths_resolved'] = paths[k]['paths_resolved'].reduce((accumulator, path) => {
-      //TODO: Implement the logic to handle paths where the first or last element is an object with an "path_id" property.
-      //      This will involve appending all resolved paths for the referenced path ID to the beginning or end of the current path.
-      const result = [];
-      if (path.length > 0) {
-        const firstElement = path[0];
-        const lastElement = path[path.length - 1];
+  // Resolve path_id references recursively (a referenced path may itself start/end with a path_id).
+  // Paths currently being resolved are tracked to guard against circular references.
+  const base_resolved = {};
+  for (const k in paths) base_resolved[k] = paths[k]['paths_resolved'];
+  const resolved_cache = {};
+  const isRef = el => el && typeof el === 'object' && !Array.isArray(el) && el.path_id;
 
-        if (firstElement && typeof firstElement === 'object' && firstElement.path_id) {
-          const referencedPaths = paths[firstElement.path_id]?.paths_resolved || [];
-          for (const refPath of referencedPaths) {
-            result.push([...refPath, ...path.slice(1)]);
-          }
-        //TODO: handle path_ids in first AND last elements.
-        } else if (path.length > 1 && lastElement && typeof lastElement === 'object' && lastElement.path_id) {
-          const referencedPaths = paths[lastElement.path_id]?.paths_resolved || [];
-          for (const refPath of referencedPaths) {
-            result.push([...path.slice(0, -1), ...refPath]);
+  function resolvePathId(id, stack) {
+    if (resolved_cache[id]) return resolved_cache[id];
+    if (!base_resolved[id] || stack.has(id)) return [];
+    const nextStack = new Set(stack).add(id);
+    const out = [];
+    for (const path of base_resolved[id]) {
+      if (path.length === 0) continue;
+      let variants = [path];
+      // Expand the first element, then the last element (the last may be the same element for length-1 paths, handled by the first).
+      if (isRef(path[0])) {
+        variants = resolvePathId(path[0].path_id, nextStack).map(ref => [...ref, ...path.slice(1)]);
+      }
+      const expanded = [];
+      for (const v of variants) {
+        const last = v[v.length - 1];
+        if (v.length > 1 && isRef(last)) {
+          for (const ref of resolvePathId(last.path_id, nextStack)) {
+            expanded.push([...v.slice(0, -1), ...ref]);
           }
         } else {
-          result.push([...path]);
+          expanded.push(v);
         }
       }
-      return accumulator.concat(result);
-    }, []);
-    // console.log(JSON.stringify(paths[k]['paths_resolved'], null, 2));
+      out.push(...expanded);
+    }
+    // Only cache results that were not truncated by a cycle guard at a nested level.
+    if (stack.size === 0) resolved_cache[id] = out;
+    return out;
+  }
+
+  for (const k in paths) {
+    paths[k]['paths_resolved'] = resolvePathId(k, new Set());
   }
 
 

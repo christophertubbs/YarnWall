@@ -37,7 +37,7 @@ Each data file may contain:
 - `paths`: named flow descriptions. This is the core entity in the data. Each path includes an ordered `path` array of node IDs. A path segment may be:
   - A single node ID (a string)
   - An array of node IDs, which represents a set of similar nodes at that point in the path (for example, multiple similar data artifacts generated at that point). Optional `name` and `comment` fields describe the path.
-  - An object including a `path_id` (or an array of such objects), which allows referencing another path, for reusing or chaining paths. _Chained paths are only allowed at the first or last position of the path, and not at both ends._
+  - An object including a `path_id` (or an array of such objects), which allows referencing another path, for reusing or chaining paths.
 
   (See notes below on desiging and choosing paths)
 - `nodes_array`: arrays of `[id, type, name]`. The display name is optional; the ID is used if it is omitted. Currently supported types are 'app', 'service', 'infrastructure', 'data', 'library', and 'host'
@@ -66,7 +66,7 @@ General tips:
 - A path should usually describe the flow of one piece or type of data, or of a very closely related set of data artifacts, in a single direction.
   - If dependency-centric instead of data-centric, the path should describe a specific type of end-to-end required/critical dependency or failure path
 - A single defined path should probably not have a cycle (though the total combined graph probably will).
-- A path should not cover a large part of the whole resulting graph unless a  failure on a node in the path impacts a large part of the system.
+- A path should not cover a large part of the whole resulting graph unless a failure on a node in the path impacts a large part of the system.
 
 ## Usage
 
@@ -87,7 +87,7 @@ To document a flow, add its nodes and a path to a JSON data file, then load that
 ## Known issues
 
 - Path filtering for a selected node is intentionally limited and can omit or include related nodes in ways that may not represent full upstream and downstream connectivity--structure your path lists accordingly to make sure that the most relevant relationships are shown.
-- Path references to another path are expanded only when the reference is at the beginning or end of the path; references at both ends are not yet supported.
+- Path references to another path are expanded only when the reference is at the beginning or end of the path.
 - The data model and visualization are intended as a high-level view, not a complete representation of system relationships.
 
 For more robust and complete data flow or system architecture documentations, look at tools like [Eclipse Capella](https://mbse-capella.org/) or [Structurizr](https://structurizr.com/).
