@@ -2,12 +2,13 @@
 import default_data from './assets/default_data.json';
 
 import * as d3 from 'd3';
-import { Liquid } from 'liquidjs';
 import { getEffectiveStyle, applyAttributes } from './styles.js';
 import { createLegend } from './legend.js';
+import { applyNodeFilters, buildTypeFilters, getAllNodeTypes, liquidEngine } from './filters.js';
 
 let nodeFiltersCurrent = [];
-const liquidEngine = new Liquid();
+// Node types hidden via the legend. Legend filters and the text filter replace each other.
+let hiddenTypes = new Set();
 
 /**
  * Generate default paths for nodes based on implied and meta links.
@@ -255,6 +256,17 @@ function prepareData(source_data, anchor){
 
   links = links.map(d => ({...d, type: links_meta_dict[`${d.source}>${d.target}`]?.type || d.type}));
 
+  // Nodes referenced only by links are materialized as type 'unknown' so filters can act on them.
+  const knownIds = new Set(nodes.map(n => n.id));
+  for (const l of links) {
+    for (const id of [l.source, l.target]) {
+      if (!knownIds.has(id)) {
+        knownIds.add(id);
+        nodes.push({id, type: 'unknown', name: id});
+      }
+    }
+  }
+
   let data = {
     nodes: nodes,
     links: links,
@@ -482,122 +494,6 @@ function computeImpactedLinks(prepared_data, links_implied) {
   prepared_data.impacted_reach = flagged;
 }
 
-/**
- * Applies the specified node filters to the prepared data. If the nodeFilters array is
- * *empty*, no filters will be applied and all nodes will be retained. If not empty, only
- * nodes matching the filters will be retained.
- * 
- * Filter objects may be a simple object whose attributes must match the target, or
- * may be a LiquidJS expression string that evaluates to a boolean.
- * 
- * If merge_links is true, links will be merged to maintain connectivity after nodes
- * after nodes are filtered out. Metadata from the original links will be merged--if
- * the same metadata key exists in multiple original links, the last one encountered
- * will take precedence.
- * 
- * Side effects: Modifies prepared_data by potentially removing nodes and links that do not match the filters!
- * 
- * @param {Object} prepared_data - The prepared data containing nodes and links.
- * @param {Array} nodeFilters - The array of node filter objects to apply.
- * @param {boolean} merge_links - Whether to merge links to heal the paths broken by dropping nodes.
- */
-function applyNodeFilters(prepared_data, nodeFilters, merge_links) {
-  if(merge_links === undefined) merge_links = true;
-  if(!nodeFilters) nodeFilters = [];
-  nodeFiltersCurrent = nodeFilters;
-  if(nodeFilters.length === 0) return;
-
-  // A node is retained if it matches any one of the filters.
-  const matchesFilter = (node, filter) => {
-    if (typeof filter === 'string') {
-      try {
-        return !!liquidEngine.evalValueSync(filter, node);
-      } catch (e) {
-        console.warn(`Invalid node filter expression: ${filter}`, e);
-        return true; // Invalid filters are no-ops!
-      }
-    }
-    if (filter && typeof filter === 'object') {
-      return Object.entries(filter).every(([k, v]) => Array.isArray(v) ? v.includes(node[k]) : node[k] === v);
-    }
-    return false;
-  };
-
-  const kept = new Set();
-  for (const node of prepared_data.nodes) {
-    if (nodeFilters.some(f => matchesFilter(node, f))) kept.add(node.id);
-  }
-
-  const originalLinks = prepared_data.links;
-  prepared_data.nodes = prepared_data.nodes.filter(n => kept.has(n.id));
-
-  // Drop filtered-out nodes from resolved paths so the sidebar and impact computation only see retained nodes.
-  for (const k in prepared_data.paths) {
-    const resolved = prepared_data.paths[k].paths_resolved;
-    prepared_data.paths[k].paths_resolved = resolved
-      .map(p => p.filter(e => typeof e !== 'string' || kept.has(e)))
-      .filter(p => p.length > 0);
-  }
-
-  const linkMeta = l => { const { source, target, ...meta } = l; return meta; };
-  const newLinks = [];
-  const seen = new Map();
-  const addLink = (source, target, meta) => {
-    const key = `${source}>${target}`;
-    const existing = seen.get(key);
-    if (existing) {
-      // Later metadata wins, but a link stays impacted if any contributing link was.
-      const impacted = existing.impacted || meta.impacted;
-      Object.assign(existing, meta);
-      if (impacted !== undefined) existing.impacted = impacted;
-      return;
-    }
-    const link = {source, target, ...meta};
-    seen.set(key, link);
-    newLinks.push(link);
-  };
-
-  const linkId = e => (typeof e === 'object' ? e.id : e);
-  for (const l of originalLinks) {
-    if (kept.has(linkId(l.source)) && kept.has(linkId(l.target))) {
-      addLink(linkId(l.source), linkId(l.target), linkMeta(l));
-    }
-  }
-
-  if (merge_links) {
-    const outgoing = new Map();
-    for (const l of originalLinks) {
-      const s = linkId(l.source);
-      if (!outgoing.has(s)) outgoing.set(s, []);
-      outgoing.get(s).push(l);
-    }
-    // From each kept node, walk through chains of dropped nodes to the kept nodes beyond them.
-    for (const start of kept) {
-      for (const first of outgoing.get(start) || []) {
-        if (kept.has(linkId(first.target))) continue;
-        const visited = new Set();
-        const stack = [{link: first, meta: linkMeta(first)}];
-        while (stack.length) {
-          const {link, meta} = stack.pop();
-          const target = linkId(link.target);
-          if (kept.has(target)) {
-            if (target !== start) addLink(start, target, meta);
-            continue;
-          }
-          if (visited.has(target)) continue;
-          visited.add(target);
-          for (const next of outgoing.get(target) || []) {
-            const nextMeta = linkMeta(next);
-            const impacted = meta.impacted || nextMeta.impacted;
-            stack.push({link: next, meta: {...meta, ...nextMeta, ...(impacted !== undefined ? {impacted} : {})}});
-          }
-        }
-      }
-    }
-  }
-
-  prepared_data.links = newLinks;
-}
 
 let applyImpacted = null;
 let applyHovered = null;
@@ -618,7 +514,7 @@ const strengthFunc = d => {
   // console.log(d);
 }
 
-function renderChart(prepared_data, all_paths, anchor){
+function renderChart(prepared_data, all_paths, anchor, legendInfo){
   let nodes = prepared_data.nodes;
   let links = prepared_data.links; 
   if (document.getElementById("force-graph")) {
@@ -687,7 +583,6 @@ function renderChart(prepared_data, all_paths, anchor){
         existingNodeIds.add(link.target);
       }
     }
-    const node_types = Array.from(new Set(nodes.map(d => d.type)));
 
     // Create a simulation with several forces.
     const simulation = d3.forceSimulation(nodes)
@@ -866,8 +761,11 @@ function renderChart(prepared_data, all_paths, anchor){
     });
 
         
-    // Legend for the node colors.
-    createLegend(svg, node_types, userStyles);
+    // Legend for the node symbology.
+    createLegend(svg, legendInfo.types, userStyles, {
+      hiddenTypes: legendInfo.hiddenTypes,
+      onToggle: legendInfo.onToggle
+    });
 
     
     return svg.node();
@@ -1033,8 +931,26 @@ function getAnchor(anchor) {
     n.impacted = impactedIds.has(n.id);
   }
   computeImpactedLinks(prepared_data, source_data.links_implied);
+
+  const allTypes = getAllNodeTypes(
+    source_data.nodes_array,
+    prepared_data.nodes.some(n => n.type === 'unknown') || hiddenTypes.has('unknown')
+  );
   applyNodeFilters(prepared_data, nodeFiltersCurrent, true);
-  renderChart(prepared_data, source_data.paths, anchor);
+  renderChart(prepared_data, source_data.paths, anchor, {
+    types: allTypes,
+    hiddenTypes,
+    onToggle: type => {
+      const next = new Set(hiddenTypes);
+      if (!next.delete(type)) next.add(type);
+      hiddenTypes = next;
+      nodeFiltersCurrent = buildTypeFilters(allTypes, hiddenTypes);
+      const filterInput = document.getElementById("filter-expr");
+      filterInput.value = "";
+      delete filterInput.dataset.yarnwall_filter_invalid;
+      getAnchor();
+    }
+  });
   writeDocSidebar(prepared_data, source_data.paths, anchor);
 }
   
@@ -1064,6 +980,7 @@ document.getElementById("filter-expr").addEventListener("input", function(){
     if (!this.value || this.value.trim() === "") {
       delete this.dataset.yarnwall_filter_invalid;
       nodeFiltersCurrent = [];
+      hiddenTypes = new Set();
       getAnchor();
       return;
     }
@@ -1075,6 +992,7 @@ document.getElementById("filter-expr").addEventListener("input", function(){
       return; // Stop further processing if the filter is invalid
     }
     nodeFiltersCurrent = [this.value];
+    hiddenTypes = new Set();
     delete this.dataset.yarnwall_filter_invalid;
     getAnchor(); // Redraw the chart with the updated filter
   }, 300);
