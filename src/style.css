@@ -26,6 +26,16 @@ body {
   overflow: scroll;
   height: calc(100% - 20px);
 }
+
+/* when #paths_doc has #paths_doc_content that is *empty*, hide the empty panel */
+#paths_doc:has(#paths_doc_content:empty) {
+  height: 60px;
+  overflow: hidden;
+}
+#paths_doc:has(#paths_doc_content:empty) h3 {
+  display: none;
+}
+
 #paths_doc .comment {
   font-style: italic;
   font-size: 12px;
