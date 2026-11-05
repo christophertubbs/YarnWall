@@ -43,7 +43,8 @@ export function createLegend(svg, nodeTypes, styleData, options = {}) {
       .attr("class", "legend-row")
       .attr("transform", `translate(0,${offset + extent})`)
       .attr("opacity", hidden ? 0.5 : 1)
-      .style("cursor", onToggle ? "pointer" : null);
+      .style("cursor", onToggle ? "pointer" : null)
+      .style("pointer-events", "all");
     // Transparent hit area spanning the whole row, so clicks aren't limited to the glyphs.
     const hit = row.append("rect")
       .attr("x", 0)

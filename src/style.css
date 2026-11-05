@@ -15,6 +15,17 @@ body {
   height: calc(50% - 2em);
 }
 
+/* Overlays the chart; only the legend rows capture pointer events so the graph stays draggable. */
+#legend {
+  position: absolute;
+  top: 0; left: 0;
+  z-index: 1;
+  overflow: visible;
+  pointer-events: none;
+  font-size: 12px;
+  zoom: 0.8;
+}
+
 #paths_doc {
   position: absolute; 
   top: 0; right: 0; 

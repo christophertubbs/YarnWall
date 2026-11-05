@@ -514,7 +514,7 @@ const strengthFunc = d => {
   // console.log(d);
 }
 
-function renderChart(prepared_data, all_paths, anchor, legendInfo){
+function renderChart(prepared_data, all_paths, anchor){
   let nodes = prepared_data.nodes;
   let links = prepared_data.links; 
   if (document.getElementById("force-graph")) {
@@ -757,17 +757,9 @@ function renderChart(prepared_data, all_paths, anchor, legendInfo){
         return;
       }
       location.hash = d.id;
-      getAnchor(d.id);
+      renderYarnWall(d.id);
     });
 
-        
-    // Legend for the node symbology.
-    createLegend(svg, legendInfo.types, userStyles, {
-      hiddenTypes: legendInfo.hiddenTypes,
-      onToggle: legendInfo.onToggle
-    });
-
-    
     return svg.node();
   }
   document.body.appendChild(chart());
@@ -919,7 +911,7 @@ hideSplash();
 
 let current_prepared = null;
 
-function getAnchor(anchor) {
+function renderYarnWall(anchor) {
   if(!anchor){
     anchor = window.location.hash.slice(1);
   }
@@ -937,8 +929,8 @@ function getAnchor(anchor) {
     prepared_data.nodes.some(n => n.type === 'unknown') || hiddenTypes.has('unknown')
   );
   applyNodeFilters(prepared_data, nodeFiltersCurrent, true);
-  renderChart(prepared_data, source_data.paths, anchor, {
-    types: allTypes,
+  renderChart(prepared_data, source_data.paths, anchor);
+  createLegend(d3.select("#legend"), allTypes, prepared_data.style, {
     hiddenTypes,
     onToggle: type => {
       const next = new Set(hiddenTypes);
@@ -948,13 +940,13 @@ function getAnchor(anchor) {
       const filterInput = document.getElementById("filter-expr");
       filterInput.value = "";
       delete filterInput.dataset.yarnwall_filter_invalid;
-      getAnchor();
+      renderYarnWall();
     }
   });
   writeDocSidebar(prepared_data, source_data.paths, anchor);
 }
   
-getAnchor();
+renderYarnWall();
 
 // Redraw when the anchor element changes size
 // const resizeObserver = new ResizeObserver(() => {
@@ -963,7 +955,7 @@ getAnchor();
 // resizeObserver.observe(window.document.body);
 // console.log("setting hashchange listener");
 window.addEventListener("hashchange", function(){
-  getAnchor();
+  renderYarnWall();
 });
 
 document.getElementById("btn-home").addEventListener("click", function(){
@@ -981,7 +973,7 @@ document.getElementById("filter-expr").addEventListener("input", function(){
       delete this.dataset.yarnwall_filter_invalid;
       nodeFiltersCurrent = [];
       hiddenTypes = new Set();
-      getAnchor();
+      renderYarnWall();
       return;
     }
     try {
@@ -994,6 +986,6 @@ document.getElementById("filter-expr").addEventListener("input", function(){
     nodeFiltersCurrent = [this.value];
     hiddenTypes = new Set();
     delete this.dataset.yarnwall_filter_invalid;
-    getAnchor(); // Redraw the chart with the updated filter
+    renderYarnWall(); // Redraw the chart with the updated filter
   }, 300);
 });
