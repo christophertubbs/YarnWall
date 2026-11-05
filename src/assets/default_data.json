@@ -12,8 +12,10 @@
                 "fill": "#1f77b4"
             },
             "infrastructure": {
-                "fill": "#d62728",
-                "r": 4
+                "fill": "#ffffff",
+                "stroke": "#d62728",
+                "stroke-width": "1.5",
+                "r": 6
             },
             "service": {
                 "fill": "#9467bd"

@@ -1,55 +1,13 @@
-import './style.css';
+﻿import './style.css';
 import default_data from './assets/default_data.json';
 
 import * as d3 from 'd3';
 import { Liquid } from 'liquidjs';
-import { legendColor } from 'd3-svg-legend';
-
-const applicationStyleDefaults = {
-  node: {
-    "*": {fill: "#7f7f7f", stroke: "white", "stroke-width": 1.5, r: 5},
-    host: {fill: "#1f77b4"},
-    data: {fill: "#ff7f0e"},
-    app: {fill: "#2ca02c"},
-    infrastructure: {fill: "#d62728"},
-    service: {fill: "#9467bd"},
-    library: {fill: "#8c564b"},
-    unknown: {fill: "#7f7f7f"}
-  },
-  link: {
-    "*": {stroke: "#999", "stroke-width": 1.5},
-    indirect: {"stroke-width": 0.5}
-  }
-};
-
-const styleAttributes = {
-  node: ["fill", "stroke", "stroke-width", "r"],
-  link: ["stroke", "stroke-width", "stroke-dasharray"]
-};
+import { getEffectiveStyle, applyAttributes } from './styles.js';
+import { createLegend } from './legend.js';
 
 let nodeFiltersCurrent = [];
 const liquidEngine = new Liquid();
-
-function getEffectiveStyle(styleData, kind, type) {
-  const defaults = applicationStyleDefaults[kind];
-  const userStyles = styleData?.[kind] || {};
-  const styles = {
-    ...defaults["*"],
-    ...defaults[type],
-    ...userStyles["*"],
-    ...userStyles[type]
-  };
-  return Object.fromEntries(styleAttributes[kind]
-    .filter(attribute => styles[attribute] !== undefined)
-    .map(attribute => [attribute, styles[attribute]]));
-}
-
-function applyAttributes(selection, attributes) {
-  for (const [attribute, value] of Object.entries(attributes)) {
-    selection.attr(attribute, value);
-  }
-}
-
 
 /**
  * Generate default paths for nodes based on implied and meta links.
@@ -189,6 +147,7 @@ function prepareData(source_data, anchor){
   for (const k in paths) {
     paths[k]['paths_resolved'] = resolvePathId(k, new Set());
   }
+
 
 
   if (anchor) {
@@ -729,13 +688,6 @@ function renderChart(prepared_data, all_paths, anchor){
       }
     }
     const node_types = Array.from(new Set(nodes.map(d => d.type)));
-    const nodeStyles = new Map(node_types.map(type => [
-      type,
-      getEffectiveStyle(userStyles, "node", type)
-    ]));
-    const color = d3.scaleOrdinal()
-      .domain(node_types)
-      .range(node_types.map(type => nodeStyles.get(type).fill));
 
     // Create a simulation with several forces.
     const simulation = d3.forceSimulation(nodes)
@@ -915,22 +867,7 @@ function renderChart(prepared_data, all_paths, anchor){
 
         
     // Legend for the node colors.
-    svg.append("g")
-      .attr("class", "legend")
-      .attr("transform", `translate(10,10)`);
-      
-    const legend = legendColor()
-    // .shape("path", d3.symbol().type(d3.symbolSquare).size(150)())
-    // .title("Node Colors")
-    .titleWidth(100)
-    .shape("path", d3.symbol().type(d3.symbolCircle).size(50)())
-    .shapePadding(15)
-    // .orient('horizontal')
-    .labelOffset(10)
-    .scale(color);
-
-    svg.select(".legend")
-      .call(legend);
+    createLegend(svg, node_types, userStyles);
 
     
     return svg.node();
