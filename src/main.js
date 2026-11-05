@@ -51,8 +51,36 @@ function applyAttributes(selection, attributes) {
 }
 
 
-// const source_data = ;
-
+/**
+ * Generate default paths for nodes based on implied and meta links.
+ * 
+ * Currently uses a naive method of simply creating 2-link paths for each implied or meta link.
+ * 
+ * @param {*} links_meta 
+ * @param {*} links_implied_arr 
+ * @returns An array of path objects
+ */
+function generateDefaultPathsForNodes(links_meta, links_implied_arr) {
+  const defaultPaths = {};
+  const allNodes = new Set();
+  for (const [source, target] of links_implied_arr) {
+    let linkId = `${source}>${target}`;
+    defaultPaths[linkId] = {
+      name: linkId,
+      path: [source, target],
+      paths_resolved: [[source, target]]
+    };
+  }
+  for (const {link: [source, target]} of links_meta) {
+    let linkId = `${source}>${target}`;
+    defaultPaths[linkId] = {
+      name: linkId,
+      path: [source, target],
+      paths_resolved: [[source, target]]
+    };
+  }
+  return defaultPaths;
+}
 
 function prepareData(source_data, anchor){
   const nodes_arr = source_data.nodes_array;
@@ -62,6 +90,12 @@ function prepareData(source_data, anchor){
 
   let paths = JSON.parse(JSON.stringify(all_paths));
 
+  // If there are no paths, this is a special case of a probably automatically 
+  // generated network with only implied links or links defined as links_meta.
+  if (Object.keys(paths).length === 0) {
+    paths = generateDefaultPathsForNodes(links_meta, links_implied_arr);
+  }
+  
   // Convert the implied links array into a dictionary for quick lookup, with the second element as the key, and an array of first elements as the value.
   let links_implied_dict = {};
   for (const [source, target] of links_implied_arr) {
@@ -153,6 +187,7 @@ function prepareData(source_data, anchor){
   for (const k in paths) {
     paths[k]['paths_resolved'] = resolvePathId(k, new Set());
   }
+
 
 
   if (anchor) {
