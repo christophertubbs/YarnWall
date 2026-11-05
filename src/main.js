@@ -68,7 +68,8 @@ function generateDefaultPathsForNodes(links_meta, links_implied_arr) {
     defaultPaths[linkId] = {
       name: linkId,
       path: [source, target],
-      paths_resolved: [[source, target]]
+      paths_resolved: [[source, target]],
+      unlisted: true
     };
   }
   for (const {link: [source, target]} of links_meta) {
@@ -76,7 +77,8 @@ function generateDefaultPathsForNodes(links_meta, links_implied_arr) {
     defaultPaths[linkId] = {
       name: linkId,
       path: [source, target],
-      paths_resolved: [[source, target]]
+      paths_resolved: [[source, target]],
+      unlisted: true
     };
   }
   return defaultPaths;
@@ -187,7 +189,6 @@ function prepareData(source_data, anchor){
   for (const k in paths) {
     paths[k]['paths_resolved'] = resolvePathId(k, new Set());
   }
-
 
 
   if (anchor) {
@@ -364,6 +365,7 @@ function writeDocSidebar(prepared_data, all_paths, anchor) {
   pathsDoc.innerHTML = '';
   for(let k in paths) {
     const path = paths[k];
+    if (path.unlisted) continue;
     const div = document.createElement('div');
     const h4 = document.createElement('h4');
     h4.innerText = paths[k].name || k;
