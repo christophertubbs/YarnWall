@@ -85,6 +85,13 @@ body {
   height: 30px;
   margin: 4px;
 }
+#paths_doc #filter-expr[data-yarnwall_filter_invalid="true"] {
+  border: 2px solid red;
+  background-color: #ffe6e6;
+}
+#paths_doc #filter-expr[data-yarnwall_filter_invalid="true"]:focus {
+  border: 2px solid red !important;
+}
 
 #force-graph {
   cursor: grab;
