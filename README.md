@@ -7,11 +7,40 @@ Conceptually, a system is documented as a set of nodes and paths (sequencces of 
 
 YarnWall is a standalone JavaScript application built with Vite and D3.js. It is at an early prototype stage (package version 0.0.1); no production or demo instance is currently available. The data-flow model in stored in editable JSON files for rendering directly in the browser, rather than requiring a separate modeling service or database.
 
+## Usage
+
+The displayed diagram shows nodes and directional links derived from the configured paths and implied links. Node color indicates its type. The panel on the right lists the paths included in the data and links each path's node names to the corresponding diagram node.
+
+- Drag nodes to adjust the layout.
+- Use the scroll wheel to zoom the diagram.
+- Click a node to focus the view on paths containing that node. The selected node is highlighted and only paths in which that node appears are shown.
+- Use the home link in the path panel to clear the selected node.
+- Ctrl+Click a node to mark it as "impacted", and downstream path segments including the node will be highlighted in red.
+- Click a legend entry to hide that node type (paths connected to hidden nodes are spliced together to retain connectivity). Hidden types stay in the legend, dimmed and struck through; click again to show them.
+- Drag and drop one or more JSON data files onto the window to load them (see below).
+
+To document a flow, add its nodes and a path to a JSON data file, then load that file using the `input` parameter, or drop it onto the window. Use the example data in  `default_data.json` as a reference.
+
+### Drag-and-drop loading
+
+Any JSON file dropped on the window is merged into the data currently displayed, as if it had been listed in a `files` array. Several files can be dropped at once. By default (with no provided `input` URL parameter), the page starts empty and allows you to drop files into it to start from scratch.
+
+Notes:
+ - Files that are not valid JSON are skipped.
+ - A dropped file's own `files` entries are not followed (there is no location to resolve relative paths against)
+ - Dropping the same file (or another file with the same data) twice will duplicate its node and link entries--this is the same as happens if including via `files` entries.
+
 ## Dependencies
 
+For use:
+
+- Any modern browser
+
+For building self-contained YarnWall charts or for development:
+
 - Node.js 20+ and npm
-- D3.js and d3-svg-legend
-- A modern browser with access to the internet
+  - D3.js
+  - LiquidJS
 
 The application does not require a database or other server-side service.
 
@@ -30,22 +59,27 @@ Open the local URL printed by Vite. To create a production build, run `npm run b
 
 ## Configuration
 
-A default diagram is defined in [src/assets/default_data.json](src/assets/default_data.json). To load another dataset, pass its URL in the `input` query parameter. For example, place JSON files in `public/data/` and go to `index.html?input=./data/myfile.json`.
+An example diagram is defined in [public/data/example_data.json](public/data/example_data.json). To this dataset, when running the Vite dev server, set the `input` query parameter to './data/example_data.json'. You can place other data files in in `public/data/` and go to e.g. `index.html?input=./data/myfile.json`. You can also drag example_data.json or other properly formatted JSON documents onto the YarnWall browser window to load data into the diagram.
 
-Each data file may contain:
+Each JSON data file may contain:
 
-- `paths`: named flow descriptions. This is the core entity in the data. Each path includes an ordered `path` array of node IDs. A path segment may be:
-  - A single node ID (a string)
-  - An array of node IDs, which represents a set of similar nodes at that point in the path (for example, multiple similar data artifacts generated at that point). Optional `name` and `comment` fields describe the path.
-  - An object including a `path_id` (or an array of such objects), which allows referencing another path, for reusing or chaining paths.
+- `paths`: An Object (dictionary) of named flow descriptions. This is the core entity in the data. See notes below on desiging and choosing paths. Each path includes:
+  - `path`: An ordered array of node IDs. A path segment may be:
+    - A single node ID (a string)
+    - An array of node IDs, which represents a set of similar nodes at that point in the path (for example, multiple similar data artifacts generated at that point)
+    - An object including a `path_id` (or an array of such objects), which allows referencing another path, for reusing or chaining paths.
+  - `name` (optional): A human-readable name for the path. The ID of the path (its key in the object) will be used if this is omitted.
+  - `comment` (optional): A small text string that adds extra information about the path. Usually, this should not simply restate the information represented by the path itself, but is intended to give extra context about the path, or caveats about its behavior.
+  - `unlisted` (optional): If `true` (defaults to `false`), keeps a path out of the sidebar list while its links are still drawn and still count when a node is selected or marked as impacted; this is especially useful for component supaths that are mainly meant to be included in other paths (via the `path_id` mechanism described above).
 
-  (See notes below on desiging and choosing paths)
-- `nodes_array`: arrays of `[id, type, name]`. The display name is optional; the ID is used if it is omitted. Currently supported types are 'app', 'service', 'infrastructure', 'data', 'library', and 'host'
+- `nodes_array`: arrays of `[id, type, name]`. The display name is optional; the ID is used if it is omitted. Built-in types with default colors are 'app', 'service', 'infrastructure', 'data', 'library', and 'host'; any other type string is allowed and can be given its own `style`.
 - `links_meta`: objects with a `link` pair of node IDs and a `type`. Currently supported types are:
-  - `runson` - Denotes a tighter coupling and is currently represented by a shorter line rendering for the link
+  - `runson` - Denotes a tighter coupling and is currently represented by a shorter, thicker line rendering for the link, with no arrowhead
+  - `indirect` - Denotes a less direct relationship, drawn as a thinner line
 - `links_implied`: pairs of node IDs where the first item should always appear in the diagram whenever the second item in the pair is present; this is useful for critical dependencies that should always be shown for a node but do not directly appear in many/any paths.
 - `files`: an array of other JSON files to combine; this allows modular recording of structures and alternative top-level aggregations of subgraphs.
   - NOTE: Relative file paths are fetched relative to the file in which they appear.
+- `style`: visual styling for nodes and links (see below).
 
 When using multiple files, IDs used in paths must be kept consistent across files for nodes shared between data files, and node IDs must be unique across data files that may be included together.
 
@@ -68,17 +102,42 @@ General tips:
 - A single defined path should probably not have a cycle (though the total combined graph probably will).
 - A path should not cover a large part of the whole resulting graph unless a failure on a node in the path impacts a large part of the system.
 
-## Usage
+### Styling
 
-The displayed diagram shows nodes and directional links derived from the configured paths and implied links. Node color indicates its type. The panel on the right lists the paths included in the data and links each path's node names to the corresponding diagram node.
+The optional `style` object has a `node` and a `link` section. Each section maps a type name to a set of style attributes; the special key `"*"` applies to every type. Styles are layered, later ones overriding earlier ones: built-in defaults, your `"*"`, then your type-specific entry.
 
-- Drag nodes to adjust the layout.
-- Use the scroll wheel to zoom the diagram.
-- Click a node to focus the view on paths containing that node. The selected node is highlighted and only paths in which that node appears are shown.
-- Ctrl+Click a node to mark it as "impacted", and downstream path segments including the node will be highlighted in red
-- Use the home link in the path panel to clear the selected node.
+```json
+{
+  "style": {
+    "node": {
+      "*": {"stroke": "black"},
+      "database": {"fill": "#17becf", "r": 8}
+    },
+    "link": {
+      "indirect": {"stroke-dasharray": "4 2"},
+      "runson": {"marker-end": true}
+    }
+  }
+}
+```
 
-To document a flow, add its nodes and a path to a JSON data file, then load that file using the `input` parameter. Use the example data in  `default_data.json` as a reference.
+Supported node attributes:
+
+- `fill`: fill color
+- `stroke`: outline color
+- `stroke-width`: outline width
+- `r`: circle radius
+
+Supported link attributes:
+
+- `stroke`: line color
+- `stroke-width`: line width
+- `stroke-dasharray`: SVG dash pattern, such as `"4 2"`
+- `marker-end`: whether the link is drawn with an arrowhead. Any truthy value draws the arrow; a falsy value (`false`, `0`, `""`) draws none. Links default to having an arrowhead, except `runson` links.
+
+Impacted nodes and links are drawn in red and hovered items are emphasized, regardless of these styles.
+
+NOTE: If `style` keys are found in multiple files, the style dictionary will be merged, but exactly how this happens is currently [undefined](https://en.wikipedia.org/wiki/Nasal_demons). Best practice is currently to define styles for a domain in a single top-level file (or one included specifically for that purpose), rather than spread styles out through multiple files.
 
 ## How to test the software
 
@@ -112,5 +171,4 @@ Contributions can improve the data model, path filtering, visualization, and aut
 ## Credits and references
 
 - [D3.js](https://d3js.org/) is used to render and interact with the graph.
-- [d3-svg-legend](https://github.com/susielu/d3-legend) provides the node-type legend.
 - [Vite](https://vite.dev/) provides the development server and production build.
