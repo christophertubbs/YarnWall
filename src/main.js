@@ -549,6 +549,10 @@ function renderChart(prepared_data, all_paths, anchor){
       }
       return style;
     };
+    // A truthy "marker-end" style selects the arrow marker; a falsy one means no marker.
+    const getMarkerEnd = d => getStyle("link", d)["marker-end"]
+      ? `url(${new URL(`#arrow-${d.type}${d.impacted ? '-red' : ''}`, location)})`
+      : null;
     const getNodeStyle = d => {
       const style = getStyle("node", d);
       if (d.impacted) {
@@ -670,7 +674,7 @@ function renderChart(prepared_data, all_paths, anchor){
         .each(function(d) {
             applyAttributes(d3.select(this), getLinkStyle(d));
           })
-        .attr("marker-end", d => `url(${new URL(`#arrow-${d.type}${d.impacted ? '-red' : ''}`, location)})`);
+        .attr("marker-end", getMarkerEnd);
 
 
     const node = container.append("g")
@@ -720,7 +724,7 @@ function renderChart(prepared_data, all_paths, anchor){
         .each(function(d) {
           applyAttributes(d3.select(this), getLinkStyle(d));
         })
-        .attr("marker-end", d => `url(${new URL(`#arrow-${d.type}${d.impacted ? '-red' : ''}`, location)})`);
+        .attr("marker-end", getMarkerEnd);
       node.select("circle").each(function(d) {
         applyAttributes(d3.select(this), getNodeStyle(d));
       });

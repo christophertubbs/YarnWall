@@ -10,15 +10,19 @@ export const applicationStyleDefaults = {
     unknown: {fill: "#7f7f7f"}
   },
   link: {
-    "*": {stroke: "#999", "stroke-width": 1.5},
-    indirect: {"stroke-width": 0.5}
+    "*": {stroke: "#999", "stroke-width": 1.5, "marker-end": true },
+    indirect: {"stroke-width": 0.5},
+    runson: {"stroke-width": 3.0, "marker-end": false }
   }
 };
 
 export const styleAttributes = {
   node: ["fill", "stroke", "stroke-width", "r"],
-  link: ["stroke", "stroke-width", "stroke-dasharray"]
+  link: ["stroke", "stroke-width", "stroke-dasharray", "marker-end"]
 };
+
+// Style keys that aren't plain SVG attribute values and are handled by the renderer instead.
+const nonAttributeStyles = new Set(["marker-end"]);
 
 export function getEffectiveStyle(styleData, kind, type) {
   const defaults = applicationStyleDefaults[kind];
@@ -36,6 +40,7 @@ export function getEffectiveStyle(styleData, kind, type) {
 
 export function applyAttributes(selection, attributes) {
   for (const [attribute, value] of Object.entries(attributes)) {
+    if (nonAttributeStyles.has(attribute)) continue;
     selection.attr(attribute, value);
   }
 }
