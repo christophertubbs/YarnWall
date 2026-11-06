@@ -4,6 +4,7 @@ import default_data from './assets/default_data.json';
 import * as d3 from 'd3';
 import { getEffectiveStyle, applyAttributes } from './styles.js';
 import { createLegend } from './legend.js';
+import { createEmptySourceData, mergeSourceData } from './data.js';
 import { applyNodeFilters, buildTypeFilters, getAllNodeTypes, liquidEngine } from './filters.js';
 
 let nodeFiltersCurrent = [];
@@ -785,16 +786,7 @@ async function loadData(searchParams){
   let seenFiles = new Set();
   let loadedFiles = new Set();
 
-  let source_data = {
-    nodes_array: [],
-    links_meta: [],
-    links_implied: [],
-    paths: {},
-    style: {
-      node: {},
-      link: {}
-    },
-  };
+  let source_data = createEmptySourceData();
 
   async function innerLoad(url, source_data) {
     // console.log(`headers: ${JSON.stringify(headers)}`)
@@ -808,30 +800,7 @@ async function loadData(searchParams){
     const response = await fetch(url, opts);
     const data = await response.json();
 
-    if ('nodes_array' in data) {
-      source_data.nodes_array = source_data.nodes_array.concat(data.nodes_array);
-    }
-
-    if ('links_meta' in data) {
-      source_data.links_meta = source_data.links_meta.concat(data.links_meta);
-    }
-
-    if ('links_implied' in data) {
-      source_data.links_implied = source_data.links_implied.concat(data.links_implied);
-    }
-
-    if ('paths' in data) {
-      // paths is an object/dictionary, not an array
-      source_data.paths = Object.assign(source_data.paths, data.paths);
-    }
-
-    if (data.style && typeof data.style === 'object') {
-      for (const kind of ['node', 'link']) {
-        if (data.style[kind] && typeof data.style[kind] === 'object') {
-          source_data.style[kind] = Object.assign(source_data.style[kind], data.style[kind]);
-        }
-      }
-    }
+    mergeSourceData(source_data, data);
 
     loadedFiles.add(base.href);
 
@@ -922,6 +891,16 @@ function renderYarnWall(anchor) {
   const impactedIds = new Set((current_prepared?.nodes || []).filter(n => n.impacted).map(n => n.id));
   let prepared_data = prepareData(source_data, anchor);
   current_prepared = prepared_data;
+  if (prepared_data.nodes.length === 0) {
+    // Nothing to draw: remove the chart and legend so the splash shows, prompting for files.
+    document.getElementById("force-graph")?.remove();
+    d3.select("#legend").selectAll("*").remove();
+    document.getElementById("splash-text").textContent = "Drop JSON graph files here";
+    showSplash();
+    writeDocSidebar(prepared_data, source_data.paths, anchor);
+    return;
+  }
+  hideSplash();
   // Carry impacted flags over from the previous render, since prepareData rebuilds the structure.
   for (const n of prepared_data.nodes) {
     n.impacted = impactedIds.has(n.id);
@@ -992,4 +971,27 @@ document.getElementById("filter-expr").addEventListener("input", function(){
     delete this.dataset.yarnwall_filter_invalid;
     renderYarnWall(); // Redraw the chart with the updated filter
   }, 300);
+});
+
+// Dropping JSON files anywhere on the window merges them into the current data, as if listed in a "files" key.
+window.addEventListener("dragover", e => {
+  if (e.dataTransfer?.types?.includes("Files")) e.preventDefault();
+});
+window.addEventListener("drop", async e => {
+  e.preventDefault();
+  if (!e.dataTransfer?.files?.length) return;
+  const files = [...e.dataTransfer.files];
+  const results = await Promise.all(files.map(async file => {
+    try {
+      return JSON.parse(await file.text());
+    } catch (err) {
+      console.warn(`Skipping ${file.name}: not valid JSON`, err);
+      return null;
+    }
+  }));
+  const parsed = results.filter(d => d && typeof d === 'object' && !Array.isArray(d));
+  if (parsed.length === 0) return;
+  for (const data of parsed) mergeSourceData(source_data, data);
+  source_data_json = JSON.stringify(source_data);
+  renderYarnWall();
 });
