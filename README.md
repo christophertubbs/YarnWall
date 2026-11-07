@@ -159,6 +159,24 @@ For questions, bug reports, or feature requests, use the [GitHub issue tracker](
 
 Contributions can improve the data model, path filtering, visualization, and automated test coverage. See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidance.
 
+### Graph engines
+
+The **Graph engine** dropdown selects the graph renderer. Currently, **D3 (2D)**
+is the only engine. Selecting a different engine removes the previous graph and
+releases its simulation resources before rendering the current data with the new
+engine. Selecting the active engine again leaves the graph in place.
+
+To add an engine, implement the `GraphEngine`/`GraphInstance` contract documented
+in [src/graph-controller.js](src/graph-controller.js) and register it in
+[src/graph-engines.js](src/graph-engines.js); its label becomes a dropdown option.
+Engines own their graph DOM and simulation resources and must release them in
+`destroy()`. They receive prepared data and a shared node-click callback, and
+provide impact, hover, and modifier-key updates. This supports a future 3D
+renderer with its own canvas and cleanup while keeping application controls and
+data preparation shared. A 3D engine is not included yet.
+
+Run `npm test` for lifecycle tests and `npm run build` for the production build.
+
 ----
 
 ## Open source licensing info

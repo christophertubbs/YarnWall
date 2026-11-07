@@ -40,7 +40,7 @@ body {
 
 /* when #paths_doc has #paths_doc_content that is *empty*, hide the empty panel */
 #paths_doc:has(#paths_doc_content:empty) {
-  height: 60px;
+  height: 90px;
   overflow: hidden;
 }
 #paths_doc:has(#paths_doc_content:empty) h3 {
@@ -106,6 +106,18 @@ body {
   height: 30px;
   margin: 4px;
 }
+#graph-engine-control {
+  clear: both;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+}
+
+#graph-engine {
+  min-width: 120px;
+}
+
 #paths_doc #filter-expr[data-yarnwall_filter_invalid="true"] {
   border: 2px solid red;
   background-color: #ffe6e6;

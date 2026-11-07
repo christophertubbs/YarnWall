@@ -1,4 +1,4 @@
-﻿import './style.css';
+import './style.css';
 import default_data from './assets/default_data.json';
 
 import * as d3 from 'd3';
@@ -6,6 +6,10 @@ import { getEffectiveStyle, applyAttributes } from './styles.js';
 import { createLegend } from './legend.js';
 import { createEmptySourceData, mergeSourceData } from './data.js';
 import { applyNodeFilters, buildTypeFilters, getAllNodeTypes, liquidEngine } from './filters.js';
+import { createGraphController } from './graph-controller.js';
+import { graphEngines } from './graph-engines.js';
+
+const graphController = createGraphController(graphEngines);
 
 let nodeFiltersCurrent = [];
 // Node types hidden via the legend. Legend filters and the text filter replace each other.
@@ -404,7 +408,7 @@ function writeDocSidebar(prepared_data, all_paths, anchor) {
                 prepared_data.nodes.filter(node => node.id === sublink).forEach(node => node.impacted = !node.impacted);
                 computeImpactedLinks(prepared_data, source_data.links_implied);
                 applyNodeFilters(prepared_data, nodeFiltersCurrent, true);
-                applyImpacted();
+                graphController.updateImpacted();
                 writeDocSidebar(prepared_data, all_paths, anchor);
               }
             });
@@ -436,13 +440,13 @@ function writeDocSidebar(prepared_data, all_paths, anchor) {
       for (const link of links) {
         link.hovered = true;
       }
-      applyHovered();
+      graphController.updateHovered();
     })(links);
     pathDiv.onmouseleave = () => ((links) => {
       for (const link of links) {
         link.hovered = false;
       }
-      applyHovered();
+      graphController.updateHovered();
     })(links);
 
     div.appendChild(pathDiv);
@@ -496,280 +500,40 @@ function computeImpactedLinks(prepared_data, links_implied) {
 }
 
 
-let applyImpacted = null;
-let applyHovered = null;
-const strengthFunc = d => {
-  let mult = 1.0;
-  if (d.impacted) {
-    console.log("Impacted link detected for node:", d.id);
-    return 1.0;
-  }
-  if (d.type === "runson") {
-    // console.log("Runson link detected for node:", d.id);
-    return 1.0;
-  } else if (d.type === "indirect") {
-    // console.log("Indirect link detected for node:", d.id);
-    return 0.01 * mult;
-  }
-  return 0.1 * mult;
-  // console.log(d);
-}
-
-function renderChart(prepared_data, all_paths, anchor){
-  let nodes = prepared_data.nodes;
-  let links = prepared_data.links; 
-  if (document.getElementById("force-graph")) {
-    document.getElementById("force-graph").remove();
-  }
-
-
-  function linkArc(d) {
-    const r = Math.hypot(d.target.x - d.source.x, d.target.y - d.source.y);
-    return `
-      M${d.source.x},${d.source.y}
-      A${r},${r} 0 0,1 ${d.target.x},${d.target.y}
-    `;
-  }
-
-  const chart = () => {
-
-    // Specify the dimensions of the chart.
-    const width = window.innerWidth; // Make fill the available horizontal space
-    const height = window.innerHeight;
-
-    const userStyles = prepared_data.style || {};
-    const getStyle = (kind, d) => getEffectiveStyle(userStyles, kind, d.type);
-    const getLinkStyle = d => {
-      const style = getStyle("link", d);
-      if (d.impacted) style.stroke = "red";
-      if (d.hovered) {
-        // const userStrokeWidth = getEffectiveStyle(userStyles, "link", d.type)["stroke-width"];
-        // const strokeWidth = Number(userStrokeWidth);
-        // style["stroke-width"] = (Number.isFinite(strokeWidth) ? strokeWidth : 0.5) * 2;
-        style["stroke-width"] = 3;
+/**
+ * Mounts the selected graph engine with application-owned node interactions.
+ * @param {Object} prepared_data - Prepared graph before simulation mutation.
+ * @param {Object} all_paths - Source paths used by the sidebar.
+ * @param {string} anchor - Selected node ID, or an empty string.
+ * @returns {void}
+ */
+function renderChart(prepared_data, all_paths, anchor) {
+  /**
+   * Navigates to a node or toggles its impact using the same rules in every engine.
+   * @param {MouseEvent} event - Node click event.
+   * @param {import('./graph-controller.js').GraphNode} node - Clicked graph node.
+   * @returns {void}
+   */
+  function onNodeClick(event, node) {
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault();
+      let preparedNode = prepared_data.nodes.find(n => n.id === node.id);
+      if (!preparedNode) {
+        preparedNode = {id: node.id, type: node.type, name: node.name};
+        prepared_data.nodes.push(preparedNode);
       }
-      return style;
-    };
-    // A truthy "marker-end" style selects the arrow marker; a falsy one means no marker.
-    const getMarkerEnd = d => getStyle("link", d)["marker-end"]
-      ? `url(${new URL(`#arrow-${d.type}${d.impacted ? '-red' : ''}`, location)})`
-      : null;
-    const getNodeStyle = d => {
-      const style = getStyle("node", d);
-      if (d.impacted) {
-        style.stroke = "red";
-        style["stroke-width"] = 3;
-      }
-      if (d.hovered) {
-        style.r = 6;
-      }
-      return style;
-    };
-
-    // The force simulation mutates links and nodes, so create a copy
-    // so that re-evaluating this cell produces the same result.
-    let links = prepared_data.links.map(d => ({...d}));
-    let nodes = prepared_data.nodes.map(d => ({...d}));
-    const link_types = Array.from(new Set(links.map(d => d.type)));
-
-    // Remove any nodes not in links...
-    const linkedNodeIds = new Set(links.flatMap(d => [d.source, d.target]));
-    nodes = nodes.filter(d => linkedNodeIds.has(d.id));
-
-    // Create any nodes that are referenced in links but not already in the nodes array with type = 'unknown'
-    const existingNodeIds = new Set(nodes.map(d => d.id));
-    for (const link of links) {
-      if (!existingNodeIds.has(link.source)) {
-        nodes.push({id: link.source, type: 'unknown', name: link.source});
-        existingNodeIds.add(link.source);
-      }
-      if (!existingNodeIds.has(link.target)) {
-        nodes.push({id: link.target, type: 'unknown', name: link.target});
-        existingNodeIds.add(link.target);
-      }
+      preparedNode.impacted = !preparedNode.impacted;
+      computeImpactedLinks(prepared_data, source_data.links_implied);
+      applyNodeFilters(prepared_data, nodeFiltersCurrent, true);
+      graphController.updateImpacted();
+      writeDocSidebar(prepared_data, all_paths, anchor);
+      return;
     }
-
-    // Create a simulation with several forces.
-    const simulation = d3.forceSimulation(nodes)
-        .force("link", d3.forceLink(links)
-          .id(d => d.id)
-          .distance(d => {
-            if (d.type === "runson") {
-              return 5;
-            }
-            return 50;
-          })
-          .strength(strengthFunc)
-        )
-        .force("charge", d3.forceManyBody().strength(-400))
-        .force("x", d3.forceX(width * 0.375).strength(0.05)) // Soft pull to your custom X center
-        .force("y", d3.forceY(height / 2).strength(0.05))   // Soft pull to your Y center
-
-    const drag = simulation => {
-      
-      function dragstarted(event, d) {
-        if (!event.active) simulation.alphaTarget(0.3).restart();
-        d.fx = d.x;
-        d.fy = d.y;
-      }
-      
-      function dragged(event, d) {
-        d.fx = event.x;
-        d.fy = event.y;
-      }
-      
-      function dragended(event, d) {
-        if (!event.active) simulation.alphaTarget(0);
-        d.fx = null;
-        d.fy = null;
-      }
-      
-      return d3.drag()
-          .on("start", dragstarted)
-          .on("drag", dragged)
-          .on("end", dragended);
-    }
-
-    simulation.on("tick", () => {
-      link.attr("d", linkArc);
-      node.attr("transform", d => `translate(${d.x},${d.y})`);
-    });
-
-    // Init node positions spread out over the SVG area
-    nodes.forEach((node, i) => {
-        node.x = Math.random() * (width - (width * 0.375));
-        node.y = Math.random() * height;
-    });
-
-    // Create the SVG container.
-    const svg = d3.create("svg")
-        .attr("id", "force-graph")
-        .attr("viewBox", [0, 0, width, height])
-        .attr("width", width)
-        .attr("height", height)
-        .attr("style", "max-width: 100%; height: auto; font: 12px sans-serif;");
-    const container = svg.append("g");
-
-    const marker_defs = link_types.flatMap(t => [{type: t, red: false}, {type: t, red: true}]);
-    svg.append("defs").selectAll("marker")
-      .data(marker_defs)
-      .join("marker")
-        .attr("id", d => d.red ? `arrow-${d.type}-red` : `arrow-${d.type}`)
-        .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 10)
-        .attr("refY", -0.5)
-        .attr("markerWidth", 6)
-        .attr("markerHeight", 6)
-        .attr("markerUnits", "strokeWidth")
-        .attr("orient", "auto")
-      .append("path")
-        .attr("fill", d => d.red ? "red" : getStyle("link", d).stroke)
-        .attr("d", "M0,-5L10,0L0,5");
-
-
-    const link = container.append("g")
-        .attr("fill", "none")
-      .selectAll("path")
-        .data(links)
-        .join("path")
-        .each(function(d) {
-            applyAttributes(d3.select(this), getLinkStyle(d));
-          })
-        .attr("marker-end", getMarkerEnd);
-
-
-    const node = container.append("g")
-        .attr("fill", "currentColor")
-        .attr("stroke-linecap", "round")
-        .attr("stroke-linejoin", "round")
-      .selectAll("g")
-      .data(nodes)
-      .join("g")
-        .call(drag(simulation));
-
-    node.append("circle")
-      .each(function(d) {
-        applyAttributes(d3.select(this), getNodeStyle(d));
-      });
-
-    node.append("title")
-        .text(d => d.id);
-
-    node.append("text")
-        .attr("x", 8)
-        .attr("y", "0.31em")
-        .text(d => d.name)
-        // Make text bold if id == anchor...
-        .attr("font-weight", d => d.id === anchor ? "bold" : "normal")
-        .attr("font-size", d => d.id === anchor ? "16px" : "12px")
-      .clone(true).lower()
-        .attr("fill", "none")
-        .attr("stroke", "white")
-        .attr("stroke-width", 3);
-
-    // Scroll wheel zoom
-    const zoom = d3.zoom()
-      .scaleExtent([0.1, 10]) // Min and max zoom limits
-      .on("zoom", (event) => {
-          container.attr("transform", event.transform); // Apply transform to the container group
-      });
-    svg.call(zoom);
-
-    // Restyle in place so toggling impact doesn't restart the force layout.
-    applyImpacted = () => {
-      const prepared_by_id = new Map(prepared_data.nodes.map(n => [n.id, n]));
-      nodes.forEach(n => { n.impacted = !!prepared_by_id.get(n.id)?.impacted; });
-      links.forEach((l, i) => { l.impacted = !!prepared_data.links[i].impacted; });
-
-      link
-        .each(function(d) {
-          applyAttributes(d3.select(this), getLinkStyle(d));
-        })
-        .attr("marker-end", getMarkerEnd);
-      node.select("circle").each(function(d) {
-        applyAttributes(d3.select(this), getNodeStyle(d));
-      });
-      simulation.force("link").strength(strengthFunc); // Force re-evaluate
-      simulation.alpha(0.1).restart();
-    };
-    applyHovered = () => {
-      const prepared_by_id = new Map(prepared_data.nodes.map(n => [n.id, n]));
-      nodes.forEach(n => { n.hovered = !!prepared_by_id.get(n.id)?.hovered; });
-      links.forEach((l, i) => { l.hovered = !!prepared_data.links[i].hovered; });
-
-      link.each(function(d) {
-        applyAttributes(d3.select(this), getLinkStyle(d));
-      });
-      node.select("circle").each(function(d) {
-        applyAttributes(d3.select(this), getNodeStyle(d));
-      });
-    };
-
-    // Click navigates to the node; Ctrl/Cmd+click toggles its "impacted" state instead.
-    node.on("click", (event, d) => {
-      if (event.ctrlKey || event.metaKey) {
-        event.preventDefault();
-        let prepared_node = prepared_data.nodes.find(n => n.id === d.id);
-        if (!prepared_node) {
-          prepared_node = {id: d.id, type: d.type, name: d.name};
-          prepared_data.nodes.push(prepared_node);
-        }
-        prepared_node.impacted = !prepared_node.impacted;
-        computeImpactedLinks(prepared_data, source_data.links_implied);
-        applyNodeFilters(prepared_data, nodeFiltersCurrent, true);
-        applyImpacted();
-        writeDocSidebar(prepared_data, all_paths, anchor);
-        return;
-      }
-      location.hash = d.id;
-      renderYarnWall(d.id);
-    });
-
-    return svg.node();
+    location.hash = node.id;
+    renderYarnWall(node.id);
   }
-  document.body.appendChild(chart());
-  // setWillImpact(modifierHeld);
 
+  graphController.render({container: document.body, preparedData: prepared_data, anchor, onNodeClick});
 }
 
 // const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -829,11 +593,13 @@ function sourceDataToClipboard() {
 
 // Tracks whether Ctrl/Cmd is held, so the graph can signal that a click will toggle "impacted".
 // The graph element is recreated on every render, so the state is reapplied after each one.
-let modifierHeld = false;
-
+/**
+ * Keeps the active engine's modifier cue in sync across graph replacements.
+ * @param {boolean} held - Whether Ctrl/Cmd is held.
+ * @returns {void}
+ */
 function setWillImpact(held) {
-  modifierHeld = held;
-  document.getElementById("force-graph")?.classList.toggle("will-impact", held);
+  graphController.setWillImpact(held);
 }
 
 window.addEventListener("keydown", e => setWillImpact(e.ctrlKey || e.metaKey));
@@ -884,6 +650,11 @@ hideSplash();
 
 let current_prepared = null;
 
+/**
+ * Rebuilds prepared data and the selected engine while retaining impact by node ID.
+ * @param {string} [anchor] - Node ID; defaults to the current URL hash.
+ * @returns {void}
+ */
 function renderYarnWall(anchor) {
   if(!anchor){
     anchor = window.location.hash.slice(1);
@@ -893,7 +664,7 @@ function renderYarnWall(anchor) {
   current_prepared = prepared_data;
   if (prepared_data.nodes.length === 0) {
     // Nothing to draw: remove the chart and legend so the splash shows, prompting for files.
-    document.getElementById("force-graph")?.remove();
+    graphController.clear();
     d3.select("#legend").selectAll("*").remove();
     document.getElementById("splash-text").textContent = "Drop JSON graph files here";
     showSplash();
@@ -929,6 +700,25 @@ function renderYarnWall(anchor) {
   writeDocSidebar(prepared_data, source_data.paths, anchor);
 }
   
+const engineSelect = document.getElementById('graph-engine');
+for (const engine of graphEngines) {
+  const option = document.createElement('option');
+  option.value = engine.id;
+  option.textContent = engine.label;
+  engineSelect.appendChild(option);
+}
+engineSelect.value = graphEngines[0].id;
+
+/**
+ * Rebuilds only when the user selects a different registered engine.
+ * @param {Event} event - Engine selector change event.
+ * @returns {void}
+ */
+function changeGraphEngine(event) {
+  if (graphController.selectEngine(event.currentTarget.value)) renderYarnWall();
+}
+engineSelect.addEventListener('change', changeGraphEngine);
+
 renderYarnWall();
 
 // Redraw when the anchor element changes size
