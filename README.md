@@ -15,15 +15,28 @@ The displayed diagram shows nodes and directional links derived from the configu
 - Use the scroll wheel to zoom the diagram.
 - Click a node to focus the view on paths containing that node. The selected node is highlighted and only paths in which that node appears are shown.
 - Use the home link in the path panel to clear the selected node.
+- Use the Back arrow in Graph controls to restore the previous node selection,
+  legend selection, or applied text filter. Back stays within the current page
+  and is disabled until a view-changing selection has been made.
 - Ctrl+Click a node to mark it as "impacted", and downstream path segments including the node will be highlighted in red.
 - Click a legend entry to hide that node type (paths connected to hidden nodes are spliced together to retain connectivity). Hidden types stay in the legend, dimmed and struck through; click again to show them.
 - Drag and drop one or more JSON data files onto the window to load them (see below).
+- Use the panel icon on the right to retract or reopen paths and graph controls.
+  Press Escape while focused in the panel to close it. The graph fills the screen
+  beneath the overlay, and closing the panel preserves its settings.
+- Use **Graph engine** to switch between **D3 (2D)** and **3d-force-graph (3D)**.
+  In 3D, drag the background to orbit, right-drag to pan, and scroll to zoom.
+  Node dragging, navigation, Ctrl/Cmd-click impact, filters, and sidebar hover
+  remain available in both engines.
 
 To document a flow, add its nodes and a path to a JSON data file, then load that file using the `input` parameter, or drop it onto the window. Use the example data in  `default_data.json` as a reference.
 
 ### Drag-and-drop loading
 
 Any JSON file dropped on the window is merged into the data currently displayed, as if it had been listed in a `files` array. Several files can be dropped at once. By default (with no provided `input` URL parameter), the page starts empty and allows you to drop files into it to start from scratch.
+
+If you have no data, click **Use default data** on the start screen to load
+`public/data/default_data.json`, the included example architecture graph.
 
 Notes:
  - Files that are not valid JSON are skipped.
@@ -59,7 +72,19 @@ Open the local URL printed by Vite. To create a production build, run `npm run b
 
 ## Configuration
 
-An example diagram is defined in [public/data/example_data.json](public/data/example_data.json). To this dataset, when running the Vite dev server, set the `input` query parameter to './data/example_data.json'. You can place other data files in in `public/data/` and go to e.g. `index.html?input=./data/myfile.json`. You can also drag example_data.json or other properly formatted JSON documents onto the YarnWall browser window to load data into the diagram.
+A detailed fictional architecture dataset is included in
+[public/data/default_data.json](public/data/default_data.json). Open
+`index.html?input=./data/default_data.json` or drop the file onto the window.
+Its 115 nodes and 178 relationships cover functions, methods, classes,
+interfaces, services, events, storage, tests, and deployment. The
+[metadata guide](doc/default-data.md) explains fields for future inspectors and
+grouped views, and the [companion schema](public/data/default_data.schema.json)
+documents the sample's proposed conventions. Custom metadata is retained in
+source records but is not yet exposed in prepared nodes/links or a metadata UI.
+This sample does not change the empty default startup view.
+
+You can place other data files in `public/data/` and open, for example,
+`index.html?input=./data/myfile.json`, or drop JSON files onto the window.
 
 Each JSON data file may contain:
 
@@ -161,8 +186,8 @@ Contributions can improve the data model, path filtering, visualization, and aut
 
 ### Graph engines
 
-The **Graph engine** dropdown selects the graph renderer. Currently, **D3 (2D)**
-is the only engine. Selecting a different engine removes the previous graph and
+The **Graph engine** dropdown selects **D3 (2D)** (the default) or
+**3d-force-graph (3D)**. Selecting a different engine removes the previous graph and
 releases its simulation resources before rendering the current data with the new
 engine. Selecting the active engine again leaves the graph in place.
 
@@ -171,9 +196,15 @@ in [src/graph-controller.js](src/graph-controller.js) and register it in
 [src/graph-engines.js](src/graph-engines.js); its label becomes a dropdown option.
 Engines own their graph DOM and simulation resources and must release them in
 `destroy()`. They receive prepared data and a shared node-click callback, and
-provide impact, hover, and modifier-key updates. This supports a future 3D
-renderer with its own canvas and cleanup while keeping application controls and
-data preparation shared. A 3D engine is not included yet.
+provide impact, hover, and modifier-key updates. The 3D adapter lives in
+[src/engines/force-graph-3d.js](src/engines/force-graph-3d.js) and uses
+[3d-force-graph](https://github.com/vasturiano/3d-force-graph), Three.js, and
+camera-facing text labels. It requires browser WebGL support. Node fill, radius,
+and stroke become spheres with outlines; link stroke, width, and `marker-end`
+become cylinders and directional cones. SVG `stroke-dasharray` is currently
+rendered as a solid link in 3D. Impact and hover refresh the existing scene
+without resetting its camera. Switching away releases animation, controls,
+scene resources, and the WebGL context.
 
 Run `npm test` for lifecycle tests and `npm run build` for the production build.
 

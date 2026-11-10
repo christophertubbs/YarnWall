@@ -1,16 +1,7 @@
 import * as d3 from 'd3';
 
 import { getEffectiveStyle, applyAttributes } from '../styles.js';
-
-/**
- * Chooses the existing force strength for a link's type and impact state.
- * @param {import('../graph-controller.js').GraphLink} link - Simulation link.
- * @returns {number} Link force strength.
- */
-function linkStrength(link) {
-  if (link.impacted || link.type === 'runson') return 1;
-  return link.type === 'indirect' ? 0.01 : 0.1;
-}
+import { copyGraphData, syncGraphFlag, linkStrength, linkDistance } from './graph-data.js';
 
 /**
  * Mounts the D3 SVG force graph. Simulation mutation is confined to copied data.
@@ -70,22 +61,12 @@ export function renderD3Graph({container, preparedData, anchor, onNodeClick}) {
     return style;
   }
 
-  const links = preparedData.links.map(d => ({...d}));
-  const linkedNodeIds = new Set(links.flatMap(d => [d.source, d.target]));
-  const nodes = preparedData.nodes.filter(d => linkedNodeIds.has(d.id)).map(d => ({...d}));
-  const existingNodeIds = new Set(nodes.map(d => d.id));
-  for (const link of links) {
-    for (const id of [link.source, link.target]) {
-      if (existingNodeIds.has(id)) continue;
-      nodes.push({id, type: 'unknown', name: id});
-      existingNodeIds.add(id);
-    }
-  }
+  const {nodes, links} = copyGraphData(preparedData);
 
   const simulation = d3.forceSimulation(nodes)
     .force('link', d3.forceLink(links)
       .id(d => d.id)
-      .distance(d => d.type === 'runson' ? 5 : 50)
+      .distance(linkDistance)
       .strength(linkStrength))
     .force('charge', d3.forceManyBody().strength(-400))
     .force('x', d3.forceX(width * 0.375).strength(0.05))
@@ -226,9 +207,7 @@ export function renderD3Graph({container, preparedData, anchor, onNodeClick}) {
    * @returns {void}
    */
   function syncFlag(flag) {
-    const preparedById = new Map(preparedData.nodes.map(n => [n.id, n]));
-    for (const node of nodes) node[flag] = !!preparedById.get(node.id)?.[flag];
-    for (const [index, link] of links.entries()) link[flag] = !!preparedData.links[index]?.[flag];
+    syncGraphFlag({nodes, links}, preparedData, flag);
     restyle();
   }
 
