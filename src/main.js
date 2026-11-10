@@ -8,10 +8,16 @@ import { createEmptySourceData, mergeSourceData } from './data.js';
 import { applyNodeFilters, buildTypeFilters, getAllNodeTypes, liquidEngine } from './filters.js';
 import { createGraphController } from './graph-controller.js';
 import { graphEngines } from './graph-engines.js';
+import { initializePathsPanel } from './paths-panel.js';
+import { createViewHistory } from './view-history.js';
+import { loadDefaultSourceData } from './default-data.js';
 
 const graphController = createGraphController(graphEngines);
+const viewHistory = createViewHistory();
+initializePathsPanel(document.getElementById('paths-overlay'));
 
 let nodeFiltersCurrent = [];
+let activeFilterExpression = '';
 // Node types hidden via the legend. Legend filters and the text filter replace each other.
 let hiddenTypes = new Set();
 
@@ -530,7 +536,6 @@ function renderChart(prepared_data, all_paths, anchor) {
       return;
     }
     location.hash = node.id;
-    renderYarnWall(node.id);
   }
 
   graphController.render({container: document.body, preparedData: prepared_data, anchor, onNodeClick});
@@ -610,11 +615,18 @@ window.addEventListener("blur", () => setWillImpact(false));
 // Splash screen handling
 const splash = document.getElementById("splash");
 const splashLogo = document.getElementById("splash-logo");
+const defaultDataButton = document.getElementById('btn-default-data');
 import splashUrl from './assets/YarnWall.jpg';
 
-function showSplash() {
+/**
+ * Displays startup/loading status and optionally offers the default dataset.
+ * @param {boolean} [offerDefault=false] - Whether the empty-state action is available.
+ * @returns {void}
+ */
+function showSplash(offerDefault = false) {
   splash.style.display = "block";
   splashLogo.src = splashUrl;
+  defaultDataButton.hidden = !offerDefault;
 }
 function hideSplash() {
   splash.style.display = "none";
@@ -659,6 +671,8 @@ function renderYarnWall(anchor) {
   if(!anchor){
     anchor = window.location.hash.slice(1);
   }
+  viewHistory.visit({anchor, filterExpression: activeFilterExpression, hiddenTypes: [...hiddenTypes]});
+  document.getElementById('btn-back').disabled = !viewHistory.canGoBack();
   const impactedIds = new Set((current_prepared?.nodes || []).filter(n => n.impacted).map(n => n.id));
   let prepared_data = prepareData(source_data, anchor);
   current_prepared = prepared_data;
@@ -667,7 +681,7 @@ function renderYarnWall(anchor) {
     graphController.clear();
     d3.select("#legend").selectAll("*").remove();
     document.getElementById("splash-text").textContent = "Drop JSON graph files here";
-    showSplash();
+    showSplash(true);
     writeDocSidebar(prepared_data, source_data.paths, anchor);
     return;
   }
@@ -683,7 +697,13 @@ function renderYarnWall(anchor) {
     prepared_data.nodes.some(n => n.type === 'unknown') || hiddenTypes.has('unknown')
   );
   applyNodeFilters(prepared_data, nodeFiltersCurrent, true);
-  renderChart(prepared_data, source_data.paths, anchor);
+  try {
+    renderChart(prepared_data, source_data.paths, anchor);
+  } catch (error) {
+    console.error('Unable to start graph engine:', error);
+    document.getElementById('splash-text').textContent = 'Unable to start this graph engine. Choose another graph engine.';
+    showSplash();
+  }
   createLegend(d3.select("#legend"), allTypes, prepared_data.style, {
     hiddenTypes,
     onToggle: type => {
@@ -691,6 +711,7 @@ function renderYarnWall(anchor) {
       if (!next.delete(type)) next.add(type);
       hiddenTypes = next;
       nodeFiltersCurrent = buildTypeFilters(allTypes, hiddenTypes);
+      activeFilterExpression = '';
       const filterInput = document.getElementById("filter-expr");
       filterInput.value = "";
       delete filterInput.dataset.yarnwall_filter_invalid;
@@ -731,6 +752,63 @@ window.addEventListener("hashchange", function(){
   renderYarnWall();
 });
 
+/**
+ * Restores a previous content selection while retaining the engine and panel state.
+ * Pending filter drafts are cancelled so they cannot overwrite the restored view.
+ * @returns {void}
+ */
+function goBackView() {
+  const previous = viewHistory.back();
+  if (!previous) return;
+  const filterInput = document.getElementById('filter-expr');
+  clearTimeout(filterInput.dataset.yarnwall_waiter);
+  delete filterInput.dataset.yarnwall_waiter;
+  delete filterInput.dataset.yarnwall_filter_invalid;
+  activeFilterExpression = previous.filterExpression;
+  filterInput.value = activeFilterExpression;
+  hiddenTypes = new Set(previous.hiddenTypes);
+  nodeFiltersCurrent = hiddenTypes.size > 0
+    ? buildTypeFilters(getAllNodeTypes(source_data.nodes_array, true), hiddenTypes)
+    : activeFilterExpression ? [activeFilterExpression] : [];
+
+  // replaceState avoids an extra hashchange/rebuild and keeps Back inside this app.
+  const url = new URL(window.location.href);
+  url.hash = previous.anchor;
+  window.history.replaceState(window.history.state, '', url);
+  renderYarnWall(previous.anchor);
+}
+document.getElementById('btn-back').addEventListener('click', goBackView);
+
+/**
+ * Loads the example on request without replacing data dropped while the request is pending.
+ * Failed requests leave the start-screen button available for retry.
+ * @returns {Promise<void>}
+ */
+async function useDefaultData() {
+  if (defaultDataButton.disabled) return;
+  const startingData = source_data_json;
+  defaultDataButton.disabled = true;
+  defaultDataButton.textContent = 'Loading default data…';
+  document.getElementById('splash-text').textContent = 'Loading default data…';
+  try {
+    const data = await loadDefaultSourceData();
+    if (source_data_json !== startingData) return;
+    mergeSourceData(source_data, data);
+    source_data_json = JSON.stringify(source_data);
+    renderYarnWall();
+  } catch (error) {
+    console.warn('Unable to load default data:', error);
+    if (source_data_json === startingData) {
+      document.getElementById('splash-text').textContent = 'Could not load default data. Try again or drop a JSON file.';
+      showSplash(true);
+    }
+  } finally {
+    defaultDataButton.disabled = false;
+    defaultDataButton.textContent = 'Use default data';
+  }
+}
+defaultDataButton.addEventListener('click', useDefaultData);
+
 document.getElementById("btn-home").addEventListener("click", function(){
   window.location.hash = "";
 });
@@ -745,6 +823,7 @@ document.getElementById("filter-expr").addEventListener("input", function(){
     if (!this.value || this.value.trim() === "") {
       delete this.dataset.yarnwall_filter_invalid;
       nodeFiltersCurrent = [];
+      activeFilterExpression = '';
       hiddenTypes = new Set();
       renderYarnWall();
       return;
@@ -757,6 +836,7 @@ document.getElementById("filter-expr").addEventListener("input", function(){
       return; // Stop further processing if the filter is invalid
     }
     nodeFiltersCurrent = [this.value];
+    activeFilterExpression = this.value;
     hiddenTypes = new Set();
     delete this.dataset.yarnwall_filter_invalid;
     renderYarnWall(); // Redraw the chart with the updated filter

@@ -1,0 +1,1267 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Atlas Commerce metadata-rich YarnWall example",
+  "description": "Proposed conventions for this synthetic sample, not an established universal YarnWall schema. Validates shape and metadata vocabulary; node/edge/path reference integrity is checked by tests/default-data.test.js. Extra metadata fields remain extensible.",
+  "type": "object",
+  "required": [
+    "$schema",
+    "_meta",
+    "nodes_array",
+    "links_meta",
+    "links_implied",
+    "paths",
+    "style"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "./default_data.schema.json"
+    },
+    "_meta": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "description",
+        "synthetic",
+        "format_version",
+        "metadata_convention_version",
+        "counts",
+        "owners",
+        "domains",
+        "vocabularies",
+        "conventions",
+        "planned_views"
+      ],
+      "properties": {
+        "id": {
+          "const": "atlas-commerce-example"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "synthetic": {
+          "const": true
+        },
+        "created_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "format_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "metadata_convention_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "counts": {
+          "type": "object"
+        },
+        "owners": {
+          "type": "object"
+        },
+        "domains": {
+          "type": "object"
+        },
+        "vocabularies": {
+          "type": "object"
+        },
+        "conventions": {
+          "type": "object"
+        },
+        "planned_views": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "status",
+              "node_types",
+              "relationship_kinds",
+              "group_by",
+              "projection",
+              "notes"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "status": {
+                "const": "design-example-only"
+              },
+              "node_types": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              },
+              "relationship_kinds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              },
+              "group_by": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              },
+              "projection": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              },
+              "notes": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "nodes_array": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "array",
+        "minItems": 4,
+        "maxItems": 4,
+        "prefixItems": [
+          {
+            "$ref": "#/$defs/nodeId"
+          },
+          {
+            "type": "string",
+            "minLength": 1
+          },
+          {
+            "type": "string",
+            "minLength": 1
+          },
+          {
+            "$ref": "#/$defs/nodeMetadata"
+          }
+        ],
+        "items": false
+      }
+    },
+    "links_meta": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "link",
+          "type",
+          "metadata"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "link": {
+            "$ref": "#/$defs/nodePair"
+          },
+          "type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "metadata": {
+            "$ref": "#/$defs/edgeMetadata"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "links_implied": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/nodePair"
+      }
+    },
+    "paths": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/path"
+      }
+    },
+    "style": {
+      "type": "object",
+      "required": [
+        "node",
+        "link"
+      ],
+      "properties": {
+        "node": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/nodeStyle"
+          }
+        },
+        "link": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/linkStyle"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "nodeId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z-]*:[A-Za-z0-9_./-]+$"
+    },
+    "nodePair": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "$ref": "#/$defs/nodeId"
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "kind",
+        "synthetic",
+        "verified_against_source",
+        "confidence"
+      ],
+      "properties": {
+        "kind": {
+          "const": "authored-example"
+        },
+        "synthetic": {
+          "const": true
+        },
+        "verified_against_source": {
+          "const": false
+        },
+        "confidence": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "source": {
+      "type": "object",
+      "description": "Illustrative source locations in the fictional repository; these are not actual YarnWall files.",
+      "required": [
+        "repository",
+        "path",
+        "revision",
+        "location_status"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "location_status": {
+          "const": "illustrative"
+        },
+        "symbol": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lines": {
+          "type": "object",
+          "required": [
+            "start",
+            "end"
+          ],
+          "properties": {
+            "start": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "end": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "commonMetadata": {
+      "type": "object",
+      "description": "Shared grouping/provenance fields for the example. Additional fields are allowed for future metadata growth.",
+      "required": [
+        "dataset",
+        "kind",
+        "description",
+        "domain",
+        "layer",
+        "owner",
+        "service",
+        "environment",
+        "classification",
+        "criticality",
+        "lifecycle",
+        "tags",
+        "provenance"
+      ],
+      "properties": {
+        "dataset": {
+          "const": "atlas-commerce-example"
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 10
+        },
+        "domain": {
+          "enum": [
+            "storefront",
+            "orders",
+            "catalog",
+            "identity",
+            "inventory",
+            "payments",
+            "fulfillment",
+            "notifications",
+            "platform",
+            "observability"
+          ]
+        },
+        "layer": {
+          "enum": [
+            "api",
+            "application",
+            "documentation",
+            "domain",
+            "integration",
+            "messaging",
+            "persistence",
+            "platform",
+            "presentation",
+            "quality",
+            "scenario"
+          ]
+        },
+        "owner": {
+          "enum": [
+            "commerce",
+            "identity",
+            "supply-chain",
+            "payments",
+            "engagement",
+            "platform"
+          ]
+        },
+        "service": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/nodeId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "environment": {
+          "enum": [
+            "demo"
+          ]
+        },
+        "classification": {
+          "enum": [
+            "public",
+            "internal",
+            "confidential",
+            "restricted"
+          ]
+        },
+        "criticality": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "lifecycle": {
+          "enum": [
+            "active",
+            "experimental",
+            "deprecated"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "language": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
+      },
+      "additionalProperties": true
+    },
+    "code": {
+      "type": "object",
+      "required": [
+        "module",
+        "package"
+      ],
+      "properties": {
+        "module": {
+          "$ref": "#/$defs/nodeId"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1
+        },
+        "qualified_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "declaring_class": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/nodeId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "visibility": {
+          "enum": [
+            "public",
+            "private",
+            "protected",
+            "exported",
+            "internal"
+          ]
+        },
+        "abstract": {
+          "type": "boolean"
+        },
+        "type_parameters": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "async": {
+          "type": "boolean"
+        },
+        "signature": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "type",
+              "description",
+              "required",
+              "sensitive"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "type": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "sensitive": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "returns": {
+          "type": "object",
+          "required": [
+            "type",
+            "description"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": true
+        },
+        "throws": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "type",
+              "description"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "side_effects": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "purity": {
+          "enum": [
+            "pure",
+            "effectful"
+          ]
+        },
+        "complexity": {
+          "type": "object",
+          "required": [
+            "measured",
+            "cyclomatic",
+            "note"
+          ],
+          "properties": {
+            "measured": {
+              "type": "boolean"
+            },
+            "cyclomatic": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "note": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "nodeMetadata": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/commonMetadata"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "app",
+                "cache",
+                "class",
+                "configuration",
+                "contract",
+                "data",
+                "database",
+                "deployment",
+                "document",
+                "event",
+                "external",
+                "function",
+                "host",
+                "infrastructure",
+                "interface",
+                "library",
+                "method",
+                "module",
+                "pipeline",
+                "service",
+                "test"
+              ]
+            },
+            "documentation": {
+              "type": "object",
+              "required": [
+                "summary"
+              ],
+              "properties": {
+                "summary": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reference": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "reference_status": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "repository_path": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "location_status": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": true
+            },
+            "source": {
+              "$ref": "#/$defs/source"
+            },
+            "code": {
+              "$ref": "#/$defs/code"
+            },
+            "resource": {
+              "type": "object"
+            },
+            "runtime": {
+              "type": "object"
+            },
+            "operations": {
+              "type": "object"
+            },
+            "contract": {
+              "type": "object"
+            },
+            "verification": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "documentation"
+          ]
+        }
+      ]
+    },
+    "edgeMetadata": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/commonMetadata"
+        },
+        {
+          "type": "object",
+          "required": [
+            "relationship",
+            "category",
+            "directed",
+            "source_role",
+            "target_role",
+            "crosses_service_boundary",
+            "projection",
+            "evidence"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "contains",
+                "declares",
+                "extends",
+                "implements",
+                "depends_on",
+                "calls",
+                "reads",
+                "writes",
+                "accesses",
+                "publishes",
+                "delivers",
+                "consumes",
+                "runs_on",
+                "deploys",
+                "tests",
+                "documents",
+                "validates_contract",
+                "uses",
+                "observes",
+                "configures"
+              ]
+            },
+            "relationship": {
+              "enum": [
+                "contains",
+                "declares",
+                "extends",
+                "implements",
+                "depends_on",
+                "calls",
+                "reads",
+                "writes",
+                "accesses",
+                "publishes",
+                "delivers",
+                "consumes",
+                "runs_on",
+                "deploys",
+                "tests",
+                "documents",
+                "validates_contract",
+                "uses",
+                "observes",
+                "configures"
+              ]
+            },
+            "category": {
+              "enum": [
+                "configuration",
+                "data",
+                "dependency",
+                "deployment",
+                "documentation",
+                "execution",
+                "messaging",
+                "observability",
+                "structure",
+                "verification"
+              ]
+            },
+            "directed": {
+              "const": true
+            },
+            "source_role": {
+              "type": "string",
+              "minLength": 1
+            },
+            "target_role": {
+              "type": "string",
+              "minLength": 1
+            },
+            "crosses_service_boundary": {
+              "type": "boolean"
+            },
+            "projection": {
+              "type": "object",
+              "required": [
+                "source_class",
+                "target_class",
+                "source_module",
+                "target_module",
+                "source_service",
+                "target_service"
+              ],
+              "properties": {
+                "source_class": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/nodeId"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "target_class": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/nodeId"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "source_module": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/nodeId"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "target_module": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/nodeId"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "source_service": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/nodeId"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "target_service": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/nodeId"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "evidence": {
+              "type": "object",
+              "required": [
+                "method",
+                "source_location",
+                "observed_at",
+                "trace_id",
+                "note"
+              ],
+              "properties": {
+                "method": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "source_location": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/source"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "observed_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "trace_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "note": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": true
+            },
+            "interaction": {
+              "type": "object",
+              "required": [
+                "mode",
+                "protocol",
+                "awaited",
+                "timeout_ms",
+                "idempotency",
+                "retry_policy",
+                "side_effects",
+                "pure_callee"
+              ],
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "request-response",
+                    "in-process"
+                  ]
+                },
+                "protocol": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "awaited": {
+                  "type": "boolean"
+                },
+                "timeout_ms": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "idempotency": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "retry_policy": {
+                  "$ref": "#/$defs/retryPolicy"
+                },
+                "side_effects": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "uniqueItems": true
+                },
+                "pure_callee": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": true
+            },
+            "data_access": {
+              "type": "object",
+              "required": [
+                "operations",
+                "transaction",
+                "parameterized",
+                "consistency",
+                "contains_sensitive_fields"
+              ],
+              "properties": {
+                "operations": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "enum": [
+                      "read",
+                      "write"
+                    ]
+                  }
+                },
+                "transaction": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "parameterized": {
+                  "type": "boolean"
+                },
+                "consistency": {
+                  "enum": [
+                    "strong",
+                    "eventual"
+                  ]
+                },
+                "contains_sensitive_fields": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": true
+            },
+            "messaging": {
+              "type": "object",
+              "required": [
+                "delivery_semantics",
+                "deduplication_key",
+                "ordering_scope",
+                "acknowledgement",
+                "retry_policy",
+                "transport_security"
+              ],
+              "properties": {
+                "delivery_semantics": {
+                  "const": "at-least-once"
+                },
+                "deduplication_key": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "ordering_scope": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "acknowledgement": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "retry_policy": {
+                  "$ref": "#/$defs/retryPolicy"
+                },
+                "transport_security": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": true
+            },
+            "condition": {
+              "type": "string",
+              "minLength": 1
+            },
+            "failure_semantics": {
+              "type": "string",
+              "minLength": 1
+            },
+            "dispatch": {
+              "type": "object"
+            },
+            "dependency": {
+              "type": "object"
+            },
+            "verification": {
+              "type": "object"
+            }
+          }
+        }
+      ]
+    },
+    "retryPolicy": {
+      "type": "object",
+      "required": [
+        "max_attempts"
+      ],
+      "properties": {
+        "max_attempts": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "strategy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "retry_only": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "dead_letter_after_exhaustion": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true
+    },
+    "pathReference": {
+      "type": "object",
+      "required": [
+        "path_id"
+      ],
+      "properties": {
+        "path_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "pathAtom": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/nodeId"
+        },
+        {
+          "$ref": "#/$defs/pathReference"
+        }
+      ]
+    },
+    "pathElement": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/pathAtom"
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/pathAtom"
+          }
+        }
+      ]
+    },
+    "path": {
+      "type": "object",
+      "required": [
+        "name",
+        "path",
+        "comment",
+        "unlisted",
+        "metadata"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/pathElement"
+          }
+        },
+        "comment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unlisted": {
+          "type": "boolean"
+        },
+        "metadata": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/commonMetadata"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "scenario",
+                    "relationship-support"
+                  ]
+                },
+                "edge_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "condition": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "branch_semantics": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "acceptance_criteria": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "uniqueItems": true
+                },
+                "failure_modes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "uniqueItems": true
+                },
+                "view_intent": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "nodeStyle": {
+      "type": "object",
+      "properties": {
+        "fill": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stroke": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stroke-width": {
+          "type": "number",
+          "minimum": 0
+        },
+        "r": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "linkStyle": {
+      "type": "object",
+      "properties": {
+        "stroke": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stroke-width": {
+          "type": "number",
+          "minimum": 0
+        },
+        "stroke-dasharray": {
+          "type": "string",
+          "minLength": 1
+        },
+        "marker-end": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

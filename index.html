@@ -3,6 +3,7 @@
 <head>
 <link rel="icon" href="favicon.png" type="image/png">
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <script type="application/javascript">
   // Check for Google Apps Script parameter injection...
   try {
@@ -19,21 +20,38 @@
   <div id="splash">
     <img id="splash-logo" alt="YarnWall Logo">
     <h3 id="splash-text">Loading...</h3>
+    <button id="btn-default-data" type="button" hidden>Use default data</button>
   </div>
 <svg id="legend"></svg>
-<div id="paths_doc">
-  <div id="toolbar">  
-    <button id="btn-json-copy" type="button">📋</button> 
-    <button id="btn-home" type="button">🏠</button>
-    <label id="filter-expr-label" for="filter-expr">Filter:</label>
-    <input id="filter-expr" type="text" placeholder="* Experimental *" >
-    <div id="graph-engine-control">
-      <label for="graph-engine">Graph engine:</label>
-      <select id="graph-engine"></select>
+<div id="paths-overlay" data-expanded="true">
+  <button id="paths-toggle" type="button" aria-controls="paths_doc" aria-expanded="true"
+          aria-label="Hide paths and controls" title="Hide paths and controls">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none"
+         stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+      <path d="M14 4v16M17 9l2 3-2 3"></path>
+    </svg>
+  </button>
+  <aside id="paths_doc" aria-labelledby="paths-panel-title">
+    <div id="toolbar">
+      <div class="toolbar-actions">
+        <h2 id="paths-panel-title">Graph controls</h2>
+        <button id="btn-back" type="button" aria-label="Back to previous graph view" title="Back to previous graph view" disabled>←</button>
+        <button id="btn-home" type="button" aria-label="Show all paths" title="Show all paths">🏠</button>
+        <button id="btn-json-copy" type="button" aria-label="Copy graph JSON" title="Copy graph JSON">📋</button>
+      </div>
+      <div class="control-row">
+        <label id="filter-expr-label" for="filter-expr">Filter:</label>
+        <input id="filter-expr" type="text" placeholder="* Experimental *">
+      </div>
+      <div id="graph-engine-control" class="control-row">
+        <label for="graph-engine">Graph engine:</label>
+        <select id="graph-engine"></select>
+      </div>
     </div>
-  </div>
-  <h3>Paths Shown</h3>
-  <div id="paths_doc_content"></div>
+    <h3>Paths Shown</h3>
+    <div id="paths_doc_content"></div>
+  </aside>
 </div>
 </body>
 </html>

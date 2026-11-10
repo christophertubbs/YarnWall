@@ -1,2 +1,4 @@
 **
 !.gitignore
+!default_data.json
+!default_data.schema.json
